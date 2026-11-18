@@ -76,7 +76,7 @@ def tune() -> HMMParams:
     grid.to_csv(OUT / "decoder_grid.csv", index=False)
     (OUT / "tuning_trips.json").write_text(json.dumps(sorted(hold)))
     best = grid.iloc[0]
-    return HMMParams(alpha=float(best.alpha), beta=float(best.beta), gamma=float(best.gamma))
+    return HMMParams(alpha=float(best.alpha), beta=float(best.beta), gamma=float(best.gamma),cutoff=float(best.cutoff))
 
 
 def main() -> None:
