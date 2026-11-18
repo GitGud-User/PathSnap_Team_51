@@ -16,6 +16,12 @@ import os
 import time
 from pathlib import Path
 
+# joblib (used by scikit-learn) tries to count physical cores with a subprocess that fails on
+# some Windows machines and prints a long, harmless traceback into the API log. joblib skips
+# that check when LOKY_MAX_CPU_COUNT is below the logical core count, so set it to one less.
+# Inference uses LightGBM's own threads, so this does not slow predictions.
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(max(1, (os.cpu_count() or 2) - 1)))
+
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,7 +33,7 @@ from pathsnap.labels.align import align_labels
 from pathsnap.pipeline import load_artifacts, predict_trip
 
 Path("logs").mkdir(exist_ok=True)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s",
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S",
                     handlers=[logging.StreamHandler(), logging.FileHandler("logs/api.log")])
 log = logging.getLogger("pathsnap.api")
 
@@ -98,14 +104,15 @@ def predict(trip_id: str):
         log.warning("rejected unknown trip_id=%s", trip_id)
         raise HTTPException(404, f"trip {trip_id} not in partition {PARTITION}")
     t0 = time.perf_counter()
-    log.info("predict trip=%s: loading", trip_id)
+    log.info("predict %s | request received", trip_id)
     try:
         trip = load_trip(trip_id, PARTITION)
-        log.info("predict trip=%s: %d GPS fixes, %d arcs; running candidates/features/classifier/HMM",
+        log.info("predict %s | %d GPS fixes, %d road arcs -> candidates, features, LightGBM, HMM",
                  trip_id, trip.n_obs, trip.n_arcs)
         out = predict_trip(trip, MODEL, PARAMS)
-        log.info("predict trip=%s: timings %s", trip_id,
-                 {k: round(v) for k, v in out["timings"].items()})
+        tm = out["timings"]
+        log.info("predict %s | stage ms: candidates+features %.0f, classifier %.0f, viterbi %.0f", trip_id,
+                 tm["candidates_features_ms"], tm["classifier_ms"], tm["hmm_ms"])
         metrics = _evaluate(trip, out)
     except Exception as e:  # noqa: BLE001
         log.exception("predict trip=%s failed", trip_id)
@@ -115,9 +122,9 @@ def predict(trip_id: str):
     g = trip.gps
     step = max(1, len(g) // 3000)
     total = (time.perf_counter() - t0) * 1000
-    log.info("predict trip=%s: done in %.0f ms | top1_hmm=%.4f top1_clf=%.4f continuity_hmm=%.3f",
+    log.info("predict %s | done %.0f ms | top1 hmm %.3f clf %.3f | continuity hmm %.3f clf %.3f",
              trip_id, total, metrics["top1_accuracy_hmm"], metrics["top1_accuracy_classifier"],
-             metrics["route_continuity_hmm"])
+             metrics["route_continuity_hmm"], metrics["route_continuity_classifier"])
     return {
         "trip_id": trip_id,
         "n_fixes": trip.n_obs,

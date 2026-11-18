@@ -1,5 +1,8 @@
 // PathSnap evaluator UI (Laptop 2). Everything shown comes from the live API response.
-const API = window.PATHSNAP_API;
+// Optional URL parameters: ?api=<base url> overrides config.js, ?trip=<id> runs that trip on load,
+// ?clf=1 also shows the classifier-only layer. Handy for demos and reproducible screenshots.
+const QS = new URLSearchParams(location.search);
+const API = QS.get("api") || window.PATHSNAP_API;
 const $ = (id) => document.getElementById(id);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
@@ -125,6 +128,13 @@ async function init() {
       $("trips").appendChild(b);
     });
     status("Select any trip – each click runs the full pipeline on the server.");
+    if (QS.get("clf") === "1") document.querySelector('[data-layer="clf"]').click();
+    const auto = QS.get("trip");
+    if (auto) {
+      const btn = [...document.querySelectorAll(".trip")].find((x) => x.querySelector("b").textContent === auto);
+      if (btn) await runTrip(auto, btn);
+      document.body.dataset.done = "1";
+    }
   } catch (e) {
     conn(false, "Offline");
     status(`Cannot reach the API at ${API} (${e.message}). Check config.js and that uvicorn is running on Laptop 1.`, { err: true });
