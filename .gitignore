@@ -1,4 +1,4 @@
-# Raw data is distributed separately (too large for git, and evaluator data must never be committed)
+﻿# Raw data is distributed separately (too large for git, and evaluator data must never be committed)
 /data/*
 !/data/README.md
 
@@ -18,5 +18,3 @@ docs/official_materials/
 
 logs/
 
-# local editor/assistant settings
-.claude/
