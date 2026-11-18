@@ -17,10 +17,10 @@ Shared files (`README.md`, `requirements.txt`, `src/pathsnap/pipeline.py`, `conf
 winget install Git.Git
 ```
 ```bash
-git clone https://github.com/GitGud-User/pathsnap.git
+git clone https://github.com/GitGud-User/PathSnap_Team_51.git
 ```
 ```bash
-cd pathsnap
+cd PathSnap_Team_51
 ```
 ```bash
 git config user.name "Your Name"

@@ -154,10 +154,10 @@ winget install Python.Python.3.11
 
 ### 5.1 Clone the repository
 ```bash
-git clone https://github.com/GitGud-User/pathsnap.git
+git clone https://github.com/GitGud-User/PathSnap_Team_51.git
 ```
 ```bash
-cd pathsnap
+cd PathSnap_Team_51
 ```
 
 ### 5.2 Create and activate a virtual environment

@@ -9,10 +9,10 @@ Both laptops must be on the **same network**. Use a phone hotspot if the venue W
 
 ## Laptop 1 (API)
 ```bash
-git clone https://github.com/GitGud-User/pathsnap.git
+git clone https://github.com/GitGud-User/PathSnap_Team_51.git
 ```
 ```bash
-cd pathsnap
+cd PathSnap_Team_51
 ```
 ```bash
 python -m venv .venv
