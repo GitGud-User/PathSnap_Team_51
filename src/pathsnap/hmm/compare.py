@@ -34,7 +34,7 @@ from pathsnap.viz.folium_maps import trip_map
 
 OUT = RESULTS_DIR / "hmm"
 TUNE_TRIPS = 12
-GRID = {"alpha": [0.6, 0.8, 1.0], "beta": [10.0, 30.0], "gamma": [4.0, 8.0]}
+GRID = {"alpha": [0.6, 0.8, 1.0], "beta": [10.0, 30.0], "gamma": [4.0, 8.0], "cutoff":[100.0, 300.0]}
 
 
 def evaluate(trip, out, labels, route):
@@ -63,14 +63,15 @@ def tune() -> HMMParams:
         lab[tab.obs_idx] = tab.true_arc
         cache.append((trip, tab, p, lab))
     rows = []
-    for a, b, g in itertools.product(GRID["alpha"], GRID["beta"], GRID["gamma"]):
-        prm = HMMParams(alpha=a, beta=b, gamma=g)
+    for a, b, g, c in itertools.product(GRID["alpha"], GRID["beta"], GRID["gamma"], GRID["cutoff"]):
+        prm = HMMParams(alpha=a, beta=b, gamma=g, cutoff=c)
         accs = []
         for trip, tab, p, lab in cache:
-            hmm, _ = decode(tab, p, trip.gps_xy, trip.gps.t.to_numpy(), trip.arcs, trip.n_nodes, prm)
+            hmm, _ = decode(tab, p, trip.gps_xy, trip.gps.t.to_numpy(), trip.arcs, trip.n_nodes, prm, nodes_xy=trip.nodes_xy)
             accs.append(pointwise_accuracy(hmm, lab))
-        rows.append({"alpha": a, "beta": b, "gamma": g, "mean_pointwise_acc": float(np.mean(accs))})
-        print(f"[hmm-grid] alpha={a} beta={b} gamma={g} acc={rows[-1]['mean_pointwise_acc']:.4f}")
+        rows.append({"alpha": a, "beta": b, "gamma": g, "cutoff": c, "mean_pointwise_acc": float(np.mean(accs))})
+        print(f"[hmm-grid] alpha={a} beta={b} gamma={g} cutoff={c} acc={rows[-1]['mean_pointwise_acc']:.4f}")    
+      
     grid = pd.DataFrame(rows).sort_values("mean_pointwise_acc", ascending=False)
     grid.to_csv(OUT / "decoder_grid.csv", index=False)
     (OUT / "tuning_trips.json").write_text(json.dumps(sorted(hold)))
