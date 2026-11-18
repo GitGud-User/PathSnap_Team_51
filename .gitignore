@@ -17,3 +17,6 @@ results/**/cache/
 docs/official_materials/
 
 logs/
+
+# local editor/assistant settings
+.claude/
