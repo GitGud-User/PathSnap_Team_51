@@ -82,14 +82,23 @@ def main() -> None:
     folds, rows, cms = [], [], {}
     gkf = GroupKFold(n_splits=5)
     for name, (family, _) in MODELS.items():
-        f1s, t1s, lls = [], [], []
+        f1s, t1s, lls, tr_f1s, tr_t1s, tr_lls = [], [], [], [], [], []
         for k, (a, b) in enumerate(gkf.split(X, y, groups)):
             m, _ = fit(name, X[a], y[a])
             p = m.predict_proba(X[b])[:, 1]
             r = row_metrics(y[b], p)
             t1 = top1_accuracy(tr.iloc[b], p)
-            folds.append({"model": name, "fold": k, **r, "top1": t1})
+            # Same metrics on the data the model was fitted on (every 5th fix of the training
+            # fold, whole candidate groups kept) -> train-vs-validation gap for over/underfitting.
+            a_eval = a[tr.obs_idx.to_numpy()[a] % (STRIDE * 5) == 0]
+            pa = m.predict_proba(X[a_eval])[:, 1]
+            ra = row_metrics(y[a_eval], pa)
+            t1a = top1_accuracy(tr.iloc[a_eval], pa)
+            folds.append({"model": name, "fold": k, **r, "top1": t1,
+                          "train_macro_f1": ra["macro_f1"], "train_top1": t1a,
+                          "train_log_loss": ra["log_loss"]})
             f1s.append(r["macro_f1"]); t1s.append(t1); lls.append(r["log_loss"])
+            tr_f1s.append(ra["macro_f1"]); tr_t1s.append(t1a); tr_lls.append(ra["log_loss"])
         m, t_train = fit(name, X, y)
         t0 = time.perf_counter()
         ps = m.predict_proba(Xs)[:, 1]
@@ -99,6 +108,8 @@ def main() -> None:
             "model": name, "family": family, "objective": OBJECTIVES[name],
             "cv_macro_f1_mean": np.mean(f1s), "cv_macro_f1_std": np.std(f1s),
             "cv_top1_mean": np.mean(t1s), "cv_top1_std": np.std(t1s), "cv_log_loss": np.mean(lls),
+            "train_macro_f1_mean": np.mean(tr_f1s), "train_top1_mean": np.mean(tr_t1s),
+            "train_log_loss_mean": np.mean(tr_lls),
             "st_accuracy": rs["accuracy"], "st_precision": rs["precision"],
             "st_recall": rs["recall"], "st_macro_f1": rs["macro_f1"], "st_log_loss": rs["log_loss"],
             "st_top1": top1_accuracy(st, ps, n_lab_st),

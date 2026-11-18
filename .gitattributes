@@ -4,3 +4,4 @@
 *.joblib binary
 *.pdf binary
 *.html text eol=lf
+*.docx binary
