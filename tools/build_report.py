@@ -223,7 +223,7 @@ W("Every trip folder holds four files without headers. The track file lists long
   "seconds for each GPS fix. The nodes file lists the longitude and latitude of each road point, and the row number "
   "is the node id. The arcs file lists pairs of node ids, and again the row number is the arc id. The route file is "
   "the reference, an ordered list of the arc ids the vehicle drove along.",
-  "An important thing we noticed early is that a GPS row is not a node and not an arc. It is a noisy position which "
+  "A GPS row is not a node and not an arc. It is a noisy position which "
   "lies somewhere near an arc, and the route file is a list of arcs rather than a label for every GPS row. We "
   "therefore had to build the link between GPS fixes and road arcs ourselves.",
   "Each trip also comes with its own road network from a different city, with trips in Germany, Russia, Japan, the "
@@ -238,7 +238,7 @@ W("Longitude and latitude are angles, and one degree of longitude covers about 1
   "its own UTM zone, chosen from the centre of its GPS track, so that every distance is measured in metres. A unit "
   "test checks that the projected distance agrees with the great-circle distance to within 0.2 percent.",
   "We did not delete any node or arc rows, because the row number is the id and removing a row would quietly shift "
-  "every id after it. Unusual GPS behaviour was flagged rather than removed. Gaps longer than 60 seconds, steps "
+  "every id after it. Unusual GPS behaviour was flagged, not removed. Gaps longer than 60 seconds, steps "
   "which imply a speed above 50 m/s and points far from the reference route are all recorded in "
   "results/eda/data_quality_log.csv together with the decision we took for each. Speed and heading are calculated "
   "from the real time difference using the previous and next fix, which also copes with the three trips whose "
@@ -260,8 +260,7 @@ W("Most GPS fixes sit very close to a road. The median distance to the reference
   "while the GPS drifts around a small area, which also makes the raw track look much longer than the real drive.",
   "For every pair of a GPS fix and a candidate arc we built the 14 features listed in the table below. They "
   "describe how close the fix is, how the candidate compares with the other candidates, whether the car is moving "
-  "in the direction of the arc, and whether the same arc was also near the previous and next fix. We deliberately "
-  "left out latitude and longitude, because every trip is a different city and a model given coordinates would "
+  "in the direction of the arc, and whether the same arc was also near the previous and next fix. We left out latitude and longitude, because every trip is a different city and a model given coordinates would "
   "learn where things are instead of learning how matching works.")
 table([["Feature", "Why it helps"],
        ["perp_dist_m", "how far the fix is from the candidate arc"],
@@ -296,12 +295,10 @@ W("We framed the learning problem around candidates. Each training row is one GP
   "candidate arcs, and the label is 1 when that candidate is the true arc. A model then gives every candidate a "
   "probability, and the candidate with the highest probability is the model's choice for that fix.",
   "We trained six models from five families on the 80 train trips. To validate them we used GroupKFold with five "
-  "folds grouped by trip, so the fixes of one trip are never split between training and validation. This matters a "
-  "lot here, because two fixes one second apart are almost identical and a random split would let the model see "
-  "near copies of its validation data. We trained on every fourth fix to keep training time reasonable on a laptop, "
+  "folds grouped by trip, so the fixes of one trip are never split between training and validation. Two fixes one second apart are almost identical, and a random split would let the model train on near copies of its validation data. We trained on every fourth fix to keep training time reasonable on a laptop, "
   "and KNN was additionally limited to 150,000 rows because it becomes very slow at prediction time.",
   "Our main selection metric is observation-level Top-1 accuracy, which asks whether the highest scored candidate "
-  "is the true arc. This is exactly the decision the HMM builds on. We used log loss as the second criterion because "
+  "is the true arc. The HMM builds on that same choice. We used log loss as the second criterion because "
   "the HMM uses the probabilities themselves, so they need to be trustworthy. Plain accuracy on candidate rows is "
   "misleading here, since about 83 percent of rows are negatives and a model which always says no would already "
   "look good.")
@@ -313,30 +310,13 @@ LABEL = {"logreg": "Logistic regression", "knn": "KNN", "random_forest": "Random
 rows = [["Model", "Family", "Key configuration", "CV macro-F1", "Top-1 (ST)", "Route continuity (ST)",
          "ST macro-F1", "Log loss (ST)", "Inference ms / 1k rows"]]
 for m, r in comp.iterrows():
-    rows.append([LABEL[m], r.family, KEY[m], f"{r.cv_macro_f1_mean:.3f} Â± {r.cv_macro_f1_std:.3f}", f"{r.st_top1:.3f}",
+    rows.append([LABEL[m], r.family, KEY[m], f"{r.cv_macro_f1_mean:.3f} ± {r.cv_macro_f1_std:.3f}", f"{r.st_top1:.3f}",
                  f"{r.st_route_continuity:.3f}", f"{r.st_macro_f1:.3f}", f"{r.st_log_loss:.3f}",
                  f"{r.infer_ms_per_1k_rows:.1f}"])
 table(rows, "Model comparison (results/models/comparison.csv). ST means student-test. Route continuity is "
       "for classifier-only predictions.", font=8)
 
 H("3.2 Individual models", 2)
-WHY = {
-    "logreg": ["a simple and fast linear baseline which gives well calibrated probabilities, useful as HMM emissions",
-               "it can only draw a straight boundary, so feature interactions like distance mattering less when "
-               "heading is unreliable are hard for it"],
-    "knn": ["it tests whether simply copying the answer of similar past examples is enough",
-            "it needs feature scaling, gets slow at prediction time because it compares with every stored row, and "
-            "has no real training step"],
-    "random_forest": ["many decision trees voting together handle non-linear rules and mixed feature scales without tuning",
-                      "the model is large, slower than boosting, and its probabilities are less sharp"],
-    "hist_gb": ["boosting fixes the previous trees' mistakes one after another and handles millions of rows quickly",
-                "more hyperparameters to set and it can overfit if allowed too many iterations"],
-    "lightgbm": ["leaf-wise boosting which is fast and usually the strongest on tabular features like ours",
-                 "sensitive to settings like number of leaves, and less interpretable than a linear model"],
-    "mlp": ["a small neural network which can learn non-linear feature combinations and is the only model here with "
-            "a real per-epoch training history",
-            "needs scaling, is slower to train, and is harder to explain than trees"],
-}
 HYP = {
     "logreg": "C 1.0 with L2 penalty, max_iter 500, StandardScaler before the model",
     "knn": "n_neighbors 25, weights by distance, StandardScaler, fitted on at most 150,000 rows",
@@ -345,114 +325,114 @@ HYP = {
     "lightgbm": "n_estimators 300, learning_rate 0.05, num_leaves 31, subsample 0.8, colsample_bytree 0.8",
     "mlp": "hidden layers 64 and 32, alpha 1e-4, batch 1024, up to 60 epochs, early stopping with patience 5",
 }
-OBJ = {
-    "logreg": "binary cross-entropy, also called log loss, with L2 regularisation",
-    "knn": "there is no training loss, the probability is a distance-weighted vote of the 25 nearest rows",
-    "random_forest": "each split reduces Gini impurity and the forest averages the trees' votes",
-    "hist_gb": "binary log loss minimised by gradient boosting on binned features",
-    "lightgbm": "binary log loss minimised by leaf-wise gradient boosting",
-    "mlp": "binary cross-entropy minimised with the Adam optimiser",
-}
+
+# The comparative claims in the model write-ups below are checked against the results here, so the
+# text cannot silently go out of date if the experiments are re-run.
+_gap = comp.train_top1_mean - comp.cv_top1_mean
+assert comp.cv_top1_mean.idxmin() == "knn" and comp.st_log_loss.idxmax() == "knn"
+assert comp.train_top1_mean.idxmin() == "logreg"
+assert _gap.sort_values(ascending=False).index[:2].tolist() == ["knn", "random_forest"]
+assert all(getattr(comp, c).idxmax() == "lightgbm" for c in ("cv_top1_mean", "st_top1", "st_macro_f1"))
+assert comp.st_log_loss.idxmin() == "lightgbm"
+assert set(comp.train_time_s.nlargest(2).index) == {"mlp", "random_forest"}
+assert comp.loc["mlp", "st_top1"] < comp.loc[["random_forest", "hist_gb", "lightgbm"], "st_top1"].min()
 
 
-def fit_comment(m, r):
-    gap = r.train_top1_mean - r.cv_top1_mean
+def model_prose(m, r, fstd):
+    st, f1, ll = f"{r.st_top1:.3f}", f"{r.st_macro_f1:.3f}", f"{r.st_log_loss:.3f}"
+    tr, cv, g = f"{r.train_top1_mean:.3f}", f"{r.cv_top1_mean:.3f}", f"{_gap[m] * 100:.1f}"
+    tt, inf = f"{r.train_time_s:.1f}", f"{r.infer_ms_per_1k_rows:.1f}"
+    if m == "logreg":
+        return [
+            "Logistic regression was our baseline. It trains in well under a second, it is easy to explain to someone "
+            "who has never seen the data, and it gives probabilities straight away, which is what the HMM needs. Its "
+            "weakness is that it separates right and wrong candidates with one straight boundary. A rule like distance "
+            "mattering less when the car is standing still is out of its reach.",
+            "We used a C of 1.0 with an L2 penalty and up to 500 iterations, after standardising the features. It "
+            "minimises binary cross-entropy, the same log loss we report.",
+            f"On student-test it reached a Top-1 of {st}, a macro-F1 of {f1} and a log loss of {ll}. Training and "
+            f"validation Top-1 were almost identical at {tr} and {cv}, and the training score is the lowest of the six "
+            "models. A model that scores this low even on data it has already seen is underfitting. It is too simple "
+            "for the problem, not too specialised.",
+        ]
     if m == "knn":
-        extra = (" Because KNN uses distance weighting, a training row is its own nearest neighbour, so a very high "
-                 "training score is expected and the validation score is the honest one")
-    else:
-        extra = ""
-    if gap > 0.05:
-        verdict = "a clear sign of overfitting"
-    elif gap > 0.015:
-        verdict = "mild overfitting"
-    else:
-        verdict = "no meaningful overfitting"
-    under = (" It also has the lowest training score of the six, so it cannot fit even the data it has seen as well "
-             "as the other models, which points to underfitting from a model that is too simple") \
-        if r.train_top1_mean == comp.train_top1_mean.min() else ""
-    return (f"Training-fold Top-1 was {r.train_top1_mean:.3f} and validation Top-1 was {r.cv_top1_mean:.3f}, a gap "
-            f"of {gap * 100:.1f} points, which we read as {verdict}. Student-test Top-1 was {r.st_top1:.3f}, close "
-            f"to validation.{extra}{under}")
-
-
-SUIT = {
-    "logreg": "We used logistic regression as our baseline. It is quick to train, easy to explain, and it naturally "
-              "gives probabilities, which is what the HMM needs as emission scores. If a straight boundary between "
-              "right and wrong candidates were enough, this model would show it.",
-    "knn": "KNN asks a very simple question, which is whether a candidate looks like candidates that were right in "
-           "the past. It makes no assumption about the shape of the boundary, so it tells us how far pure "
-           "similarity between feature vectors can go on this problem.",
-    "random_forest": "A random forest is a group of decision trees which each see a random part of the data and "
-                     "then vote. Trees handle rules like distance mattering less when the heading is unreliable "
-                     "without any feature engineering, and they do not care about feature scales.",
-    "hist_gb": "Gradient boosting builds trees one after another, each correcting the mistakes of the ones before. "
-               "The histogram version bins the features first, which makes it fast on the hundreds of thousands of "
-               "candidate rows we have.",
-    "lightgbm": "LightGBM is another gradient boosting library, which grows trees leaf by leaf and is known for being "
-                "both fast and strong on tabular data such as our 14 numeric features.",
-    "mlp": "A multi-layer perceptron is a small neural network which can learn combinations of features that a "
-           "single straight boundary cannot. It is also the only model here which trains in epochs, so it gives us a "
-           "real training history to look at.",
-}
-STRONG = {
-    "logreg": "Its strength is that it is fast and gives well calibrated probabilities.",
-    "knn": "Its strength is that it needs no assumptions about how the features relate to the answer.",
-    "random_forest": "Its strength is that it handles non-linear rules and mixed feature scales with almost no tuning.",
-    "hist_gb": "Its strength is that each new tree focuses on the errors of the previous ones, and it trains quickly.",
-    "lightgbm": "Its strength is a very good balance of accuracy, well behaved probabilities and speed.",
-    "mlp": "Its strength is that it can learn smooth non-linear combinations of features.",
-}
-LIMIT = {
-    "logreg": "Its main limitation is that it can only draw one straight boundary in feature space, so interactions "
-              "between features are hard for it to capture.",
-    "knn": "Its limitations are that it needs carefully scaled features, it has no real training step, and it is "
-           "slow at prediction time because every query is compared with the stored rows.",
-    "random_forest": "On the other hand the model is large, slower to train than boosting, and its probabilities tend "
-                     "to be less sharp because they are averages of votes.",
-    "hist_gb": "It has more settings to choose than the simpler models and can overfit if it is allowed too many "
-               "iterations.",
-    "lightgbm": "Its downside is sensitivity to settings such as the number of leaves, and it is harder to interpret "
-                "than a linear model.",
-    "mlp": "It needs scaled inputs, takes longer to train, and it is harder to explain than a tree or a linear model.",
-}
-
-
-def fit_text(m, r):
-    gap = r.train_top1_mean - r.cv_top1_mean
-    if gap > 0.05:
-        verdict = "which we read as clear overfitting"
-    elif gap > 0.015:
-        verdict = "which we read as mild overfitting"
-    else:
-        verdict = "which shows no meaningful overfitting"
-    text = (f"Its Top-1 on the training folds was {r.train_top1_mean:.3f} against {r.cv_top1_mean:.3f} on the "
-            f"validation folds, a gap of {gap * 100:.1f} points, {verdict}. The student-test Top-1 of "
-            f"{r.st_top1:.3f} is close to the validation value, so the model generalises to new trips about as well "
-            f"as cross-validation predicted.")
-    if m == "knn":
-        text += (" For KNN the high training score is partly built in, because with distance weighting every "
-                 "training row is its own nearest neighbour, so the validation score is the honest one.")
-    if r.train_top1_mean == comp.train_top1_mean.min():
-        text += (" It also has the lowest training score of all six models, which means it cannot even fit the data "
-                 "it has seen as well as the others. We read this as underfitting from a model that is too simple.")
-    return text
+        lg = comp.loc["lightgbm", "infer_ms_per_1k_rows"]
+        return [
+            "KNN does no real learning. For a new candidate it finds the 25 most similar rows it has stored and lets "
+            "them vote, weighted by how close they are. We included it to see how far plain similarity can go. It "
+            f"needs scaled features, and the price shows up at prediction time. It took about {inf} ms per 1,000 rows "
+            f"against {lg:.1f} ms for LightGBM, because every query is compared with the stored data, so we fitted it "
+            "on at most 150,000 rows.",
+            "There is no loss function to minimise. The probability for a candidate is the distance-weighted share of "
+            "its 25 neighbours that were correct.",
+            f"Student-test Top-1 was {st}, macro-F1 {f1} and log loss {ll}, the worst log loss of the six. The "
+            f"training folds look excellent at {tr} against {cv} on validation, a gap of {g} points. Part of that gap "
+            "comes with the method, since with distance weighting every training row is its own closest neighbour. "
+            "Validation is where it counts, and there KNN had the lowest score of all six models.",
+        ]
+    if m == "random_forest":
+        return [
+            "The random forest grows 150 decision trees, each on a random sample of rows and features, and averages "
+            "their votes. Trees pick up rules such as distance mattering less when the heading is unreliable without "
+            "us writing them, and they do not care whether a feature is measured in metres or degrees. The cost is "
+            f"size and speed. Together with the MLP it was one of the two slowest to train, at {tt} seconds, and "
+            "averaged votes give softer probabilities than "
+            "boosting.",
+            "We limited the depth to 16 and required at least 5 rows in every leaf. Each split is chosen to reduce "
+            "Gini impurity.",
+            f"It reached a student-test Top-1 of {st}, macro-F1 {f1} and log loss {ll}. Top-1 was {tr} on the "
+            f"training folds and {cv} on validation. That gap of {g} points is the largest after KNN and the clearest "
+            "sign of overfitting among the tree models, which fits what we expected from deep trees.",
+        ]
+    if m == "hist_gb":
+        return [
+            "HistGradientBoosting builds trees one at a time, and each new tree tries to fix the errors of the trees "
+            "before it. It first sorts every feature into a small number of bins, which is why it trained in "
+            f"{tt} seconds on about 265,000 rows. Boosting has more settings than a forest and can overfit if it runs "
+            "for too many rounds.",
+            "We used 300 boosting iterations, a learning rate of 0.1 and at most 31 leaves per tree, minimising binary "
+            "log loss.",
+            f"Its student-test Top-1 was {st}, macro-F1 {f1} and log loss {ll}, very close to LightGBM. On the training "
+            f"folds it scored {tr} against {cv} on validation, a gap of {g} points, so it overfits a little but far less than the "
+            "random forest.",
+        ]
+    if m == "lightgbm":
+        return [
+            "LightGBM is also gradient boosting, but it grows each tree leaf by leaf, always splitting the leaf that "
+            "lowers the loss most. On tabular data like our 14 numeric features it tends to be one of the strongest "
+            "models, and it is fast to train and to run. The learning rate and the number of leaves need care, and a "
+            "boosted ensemble is harder to explain than a linear model.",
+            "Our starting point was 300 trees, a learning rate of 0.05 and 31 leaves, with 80 percent of the rows and "
+            "columns sampled for each tree. The objective is binary log loss.",
+            f"This was the best model on every measure we used. Student-test Top-1 was {st}, macro-F1 {f1} and log "
+            f"loss {ll}, and inference took about {inf} ms per 1,000 rows. Validation Top-1 varied by only {fstd:.3f} "
+            f"between folds. Its training-fold score of {tr} sits {g} points above the validation score of {cv}, mild "
+            "overfitting of about the same size as HistGradientBoosting.",
+        ]
+    if m == "mlp":
+        return [
+            "The multi-layer perceptron has two hidden layers of 64 and 32 units. It can combine features in smooth, "
+            "non-linear ways that a single boundary cannot, and it is the only model here that trains in epochs, so "
+            "it gives a genuine training curve, shown with the other figures below. In exchange it needs scaled "
+            f"inputs, was one of the two slowest models to train at {tt} seconds, and is the hardest of the six to explain.",
+            "It minimises binary cross-entropy with the Adam optimiser, in batches of 1,024, with a small L2 penalty of "
+            "0.0001. Training stops when the score on an internal 10 percent validation split has not improved for "
+            "5 epochs.",
+            f"On student-test the MLP reached a Top-1 of {st}, a macro-F1 of {f1} and a log loss of {ll}. Its training and "
+            f"validation scores of {tr} and {cv} are only {g} points apart, so early stopping kept it from overfitting. It still finished below the "
+            "three tree ensembles.",
+        ]
+    raise KeyError(m)
 
 
 for m, r in comp.iterrows():
     H(f"3.2.{list(comp.index).index(m) + 1} {LABEL[m]} ({r.family})", 3)
-    fstd = folds[folds.model == m].top1.std()
-    Q("Why we chose it.", SUIT[m])
-    Q("Strengths and limitations.", f"{STRONG[m]} {LIMIT[m]}")
-    Q("Hyperparameters.", f"We started from {HYP[m]}.")
-    Q("Loss or objective.", f"{OBJ[m][0].upper() + OBJ[m][1:]}.")
-    Q("Results on student-test.", f"Top-1 accuracy was {r.st_top1:.3f}, macro-F1 was {r.st_macro_f1:.3f} and log "
-                                  f"loss was {r.st_log_loss:.3f}. On candidate rows precision was "
-                                  f"{r.st_precision:.3f}, recall {r.st_recall:.3f} and accuracy {r.st_accuracy:.3f}. "
-                                  f"Across the five validation folds Top-1 varied with a standard deviation of "
-                                  f"{fstd:.3f}. Training took {r.train_time_s:.1f} seconds and inference about "
-                                  f"{r.infer_ms_per_1k_rows:.1f} ms per 1,000 candidate rows.")
-    Q("Over or underfitting.", fit_text(m, r))
+    W(*model_prose(m, r, folds[folds.model == m].top1.std()))
+
+table([["Model", "Precision", "Recall", "Accuracy", "Training time s"]] +
+      [[LABEL[m], f"{r.st_precision:.3f}", f"{r.st_recall:.3f}", f"{r.st_accuracy:.3f}", f"{r.train_time_s:.1f}"]
+       for m, r in comp.iterrows()],
+      "Student-test precision, recall and accuracy on candidate rows, with training time", font=8.5)
 
 H("3.3 Model visualisations", 2)
 M = R / "models"
@@ -471,7 +451,7 @@ W(f"We selected LightGBM. It had the best cross-validation Top-1 at {lgb.cv_top1
   f"{lgb.st_log_loss:.3f}. It is also quick, at about {lgb.infer_ms_per_1k_rows:.1f} ms per 1,000 candidate rows, "
   f"while KNN needed about {comp.loc['knn', 'infer_ms_per_1k_rows']:.0f} ms for the same work.",
   "The differences between the three tree ensembles are small, so accuracy alone would not have been a convincing "
-  "reason. What tipped the decision was probability quality, since LightGBM has the lowest log loss and the HMM uses "
+  "reason. We chose it mainly for its probabilities, since LightGBM has the lowest log loss and the HMM uses "
   "these probabilities directly, together with its speed during live API requests and its stable scores across the "
   "five folds.")
 doc.add_page_break()
@@ -508,7 +488,7 @@ Q("Did tuning help.", (f"Yes. The tuned model reached a cross-validation Top-1 o
   (f"No. The best trial reached a cross-validation Top-1 of {tvu.loc['tuned', 'cv_top1']:.4f}, slightly below the "
    f"{tvu.loc['untuned', 'cv_top1']:.4f} of the initial settings, and the student-test Top-1 was "
    f"{tvu.loc['tuned', 'st_top1']:.4f} against {tvu.loc['untuned', 'st_top1']:.4f}. Because we decide only on "
-   "cross-validation, we kept the initial configuration as the final model. Our reading is that the defaults were "
+   "cross-validation, we kept the initial configuration as the final model. We think the defaults were "
    "already in a good region, and that the remaining errors come from noisy GPS and imperfect reference labels "
    "rather than from the hyperparameters. The third table compares both versions on the same metrics and data."))
 doc.add_page_break()
@@ -521,7 +501,7 @@ W("A classifier judges every GPS fix on its own, so nothing stops it from choosi
   "Markov Model adds the missing knowledge, namely that consecutive positions must be connected on the road network "
   "and must be consistent with how far the car actually moved.")
 Q("Hidden states.", "At each time step the hidden state is one of the candidate arcs of that GPS fix, so there are "
-  "at most 8 states per step. The decoder therefore chooses exactly one arc per fix, and the arc ids stay exactly as "
+  "at most 8 states per step. The decoder therefore chooses one arc per fix, and the arc ids stay as "
   "they are in the arcs file.")
 Q("Emission probabilities.", f"The emission score of a candidate is the log of the probability that LightGBM gives "
   f"it, blended with a Gaussian score on the perpendicular distance using a weight alpha. The tuned value of alpha "
@@ -612,7 +592,7 @@ W("All interactive maps are produced by src/pathsnap/viz/folium_maps.py and save
   "The reference route layer is only allowed for the train and student-test partitions. The map function refuses to "
   "draw it for evaluator trips, which is one of the ways we make sure ground truth can never reach the UI.",
   "The overview map of trip 0 shows the HMM route following the reference along the whole drive. The close-up of "
-  "trip 56 is more interesting. Around the West 78th Street junction the classifier-only route jumps onto the "
+  "trip 56 shows where they differ. Around the West 78th Street junction the classifier-only route jumps onto the "
   "parallel carriageway and onto side roads and slip roads, while the HMM route stays on the same carriageway as "
   "the reference route.")
 image(S / "map_hmm_trip00000000_overview.png", "Folium map of student-test trip 0, HMM route in purple over the "
@@ -631,7 +611,7 @@ table([["Method", "Endpoint", "Purpose"],
       "API endpoints (backend/app.py)", widths=[2, 5, 9])
 W("Laptop 1 runs the FastAPI backend with uvicorn. It holds the trained model, the road networks, the HMM decoder "
   "and the hidden reference routes. Laptop 2 serves the web UI, which is a single page built with Leaflet. The UI "
-  "asks the API for the list of trips, which the API reads from disk rather than from a fixed list, and when the "
+  "asks the API for the list of trips, which the API reads from disk instead of a fixed list, and when the "
   "evaluator clicks a trip it sends only that trip id to the API.",
   "Every predict request runs the whole pipeline live, from candidate generation and features through LightGBM to "
   "the Viterbi decoder, and the API log on Laptop 1 records each stage with its timing. Nothing is cached or "
