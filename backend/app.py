@@ -1,9 +1,12 @@
-"""PathSnap API (Laptop 1).
+"""PathSnap API (Laptop 1) — also serves the web UI.
 
-Start:  uvicorn backend.app:app --host 0.0.0.0 --port 8000
+Start:  uvicorn backend.app:app --host 127.0.0.1 --port 8000
+        -> UI at http://127.0.0.1:8000/ui/ , API at /api/*
+        Behind a Cloudflare Tunnel one public link serves both.
 Env:    PATHSNAP_EVAL_PARTITION  partition served to the UI (default: evaluator_test if it has
                                  trips, else student_test for rehearsals)
         PATHSNAP_DATA_DIR        data root (default ./data)
+        PATHSNAP_FRONTEND_DIR    UI folder (default ./frontend)
 
 Every /api/predict call runs the full pipeline live (no cached or hard-coded outputs) and
 logs each stage. Reference routes are read only inside `_evaluate`, server-side, and are
@@ -25,6 +28,8 @@ os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(max(1, (os.cpu_count() or 2) - 1
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from pathsnap.data.loaders import list_trips, load_reference_route, load_trip
 from pathsnap.eval.metrics import pointwise_accuracy, route_continuity, route_f1
@@ -36,6 +41,9 @@ Path("logs").mkdir(exist_ok=True)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S",
                     handlers=[logging.StreamHandler(), logging.FileHandler("logs/api.log")])
 log = logging.getLogger("pathsnap.api")
+
+FRONTEND_DIR = Path(os.environ.get("PATHSNAP_FRONTEND_DIR")
+                    or Path(__file__).resolve().parent.parent / "frontend")
 
 PARTITION = os.environ.get("PATHSNAP_EVAL_PARTITION") or (
     "evaluator_test" if list_trips("evaluator_test") else "student_test")
@@ -77,11 +85,17 @@ def _evaluate(trip, out) -> dict:
     }
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
-    """Landing response for the bare server/tunnel address."""
+    """Bare server/tunnel address opens the web UI."""
+    return RedirectResponse("/ui/")
+
+
+@app.get("/api")
+def service_info():
+    """JSON landing for the API itself."""
     return {"service": "PathSnap API", "status": "running", "partition": PARTITION,
-            "endpoints": {"health": "/api/health", "trips": "/api/trips",
+            "endpoints": {"ui": "/ui/", "health": "/api/health", "trips": "/api/trips",
                           "predict": "POST /api/predict/{trip_id}", "interactive_docs": "/docs"}}
 
 
@@ -134,3 +148,13 @@ def predict(trip_id: str):
         "metrics": metrics,
         "timings_ms": {**{k: round(v, 1) for k, v in out["timings"].items()}, "total_ms": round(total, 1)},
     }
+
+
+# Static UI, mounted last so every API route above wins. Serving the UI from the API origin
+# means one public link (e.g. a Cloudflare Tunnel) covers both, and the page calls the API
+# with relative URLs — no config.js edit needed and no CORS round trip.
+if FRONTEND_DIR.is_dir():
+    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="ui")
+    log.info("serving UI from %s at /ui/", FRONTEND_DIR)
+else:
+    log.warning("frontend folder %s not found; UI disabled", FRONTEND_DIR)

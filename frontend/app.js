@@ -1,8 +1,10 @@
-// PathSnap evaluator UI (Laptop 2). Everything shown comes from the live API response.
+// PathSnap evaluator UI. Everything shown comes from the live API response.
 // Optional URL parameters: ?api=<base url> overrides config.js, ?trip=<id> runs that trip on load,
 // ?clf=1 also shows the classifier-only layer. Handy for demos and reproducible screenshots.
+// Empty window.PATHSNAP_API means "same origin" (the API also serves this page).
 const QS = new URLSearchParams(location.search);
-const API = QS.get("api") || window.PATHSNAP_API;
+const API = (QS.get("api") || window.PATHSNAP_API || "").replace(/\/+$/, "");
+const API_LABEL = API || location.origin;  // for status messages only
 const $ = (id) => document.getElementById(id);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
@@ -109,7 +111,7 @@ async function runTrip(id, btn) {
     $("tripcard").classList.add("show");
     status(`Trip ${id} done – ${num(d.n_fixes)} fixes matched by the live API.`);
   } catch (e) {
-    status(`Request failed: ${e.message}. Is the API running at ${API}?`, { err: true });
+    status(`Request failed: ${e.message}. Is the API running at ${API_LABEL}?`, { err: true });
   }
 }
 
@@ -137,7 +139,7 @@ async function init() {
     }
   } catch (e) {
     conn(false, "Offline");
-    status(`Cannot reach the API at ${API} (${e.message}). Check config.js and that uvicorn is running on Laptop 1.`, { err: true });
+    status(`Cannot reach the API at ${API_LABEL} (${e.message}). Check that uvicorn is running and config.js points at it.`, { err: true });
   }
 }
 init();
