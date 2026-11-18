@@ -70,7 +70,8 @@ A *quick tunnel* gives the app a temporary public HTTPS address, `https://<rando
    On Windows, close and reopen the terminal afterwards.
 2. **Terminal 1: start the app.** Local-only is enough, because the tunnel connects locally:
    ```bash
-   .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
+   .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000           # macOS / Linux
+   .venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000   # Windows
    ```
 3. **Terminal 2: start the tunnel** — either the helper script, which checks that the API is up first, or cloudflared directly:
    ```bash
@@ -107,10 +108,11 @@ Then open:
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|
-| UI shows the red "Offline" pill | API not running; wrong URL/IP in `config.js`; for Option A, firewall rule missing or different networks; for Option B, cloudflared stopped or URL changed |
+| UI shows the red "Offline" pill | API not running, or the page is calling the wrong origin. A page served by the API (`/ui/`, LAN IP, tunnel link) needs `config.js` at `""`; only a separately served `frontend/` copy needs Laptop 1's absolute URL. For Option A also check the firewall rule and that both laptops are on the same network |
+| Tunnel link does not load at all (no page, no pill) | cloudflared isn't running, or it was restarted — every run prints a **new** URL. Restart it and re-share that link; no `config.js` change is needed |
 | `{"detail":"Not Found"}` | You opened a path that doesn't exist. Use `/ui/` for the map, `/docs`, `/api`, `/api/health` or `/api/trips` |
 | Tunnel URL gives `502 Bad Gateway` | cloudflared is running but uvicorn isn't. Start the API on port 8000 |
-| `Address already in use` / `WinError 10048` | Another server uses the port. Close it, or use `--port 8001` and update `config.js` |
+| `Address already in use` / `WinError 10048` | Another server uses the port. Close it, or use `--port 8001` and update `config.js` only if the UI is served separately |
 | `FileNotFoundError models/final/model.joblib` | Pull the committed `models/final/`, or run the training steps in the README |
 | 404 trip not in partition | The trip folder is missing from `data/<partition>/` |
 | Map tiles show "403 Access blocked" | Open the page through `http://`, not by double-clicking (see above) |

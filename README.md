@@ -107,7 +107,7 @@ The HMM improved all 10 trips. The earlier straight-line-distance version reache
 ```
 pathsnap/
 ├── backend/app.py              FastAPI server (Laptop 1)
-├── frontend/                   Web UI (Laptop 2): index.html, app.js, config.js
+├── frontend/                   Web UI (served by the API at /ui/): index.html, app.js, config.js
 ├── src/pathsnap/               The Python package (imported as `pathsnap`)
 │   ├── config.py               Paths and constants
 │   ├── geo.py                  Distances, UTM projection, bearings
@@ -240,7 +240,8 @@ The API serves the web UI too, so one process and one port are enough.
 
 **Terminal: start the app**
 ```bash
-.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000           # macOS / Linux
+.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000   # Windows
 ```
 Wait for these lines:
 ```
@@ -287,17 +288,17 @@ Both laptops must be on the **same network**. If the venue Wi-Fi blocks device-t
    ```
 
 ### Laptop 2 (UI)
-1. Clone the repository. Only the `frontend/` folder and Python are needed; the dependencies aren't.
-2. Edit **`frontend/config.js`** and set Laptop 1's IP:
-   ```js
-   window.PATHSNAP_API = "http://192.168.43.10:8000";
-   ```
-3. Test the connection by opening `http://192.168.43.10:8000/api/health` in a browser. It must show JSON.
-4. Serve the UI:
-   ```bash
-   python -m http.server 5500 --directory frontend
-   ```
-5. Open **http://127.0.0.1:5500**. The panel picks any trip, and Laptop 1's console shows the request being processed.
+1. Test the connection by opening `http://192.168.43.10:8000/api/health` in a browser. It must show JSON.
+2. Open **http://192.168.43.10:8000/ui/**. Laptop 1 serves the page and the API on one origin, so nothing else is needed on this laptop and `config.js` stays as committed.
+
+**Prefer Laptop 2 to serve its own copy of the UI?** Clone the repository (only `frontend/` is needed), set Laptop 1's IP in **`frontend/config.js`**:
+```js
+window.PATHSNAP_API = "http://192.168.43.10:8000";
+```
+then serve it and open **http://127.0.0.1:5500**:
+```bash
+python -m http.server 5500 --directory frontend
+```
 
 **Different networks, or Wi-Fi that blocks devices from reaching each other?** Use a Cloudflare quick tunnel instead — one public link then serves both the UI and the API. On Laptop 1, start uvicorn on `127.0.0.1:8000` and run `./tools/tunnel.sh` (or `cloudflared tunnel --url http://127.0.0.1:8000`). Open the printed `https://….trycloudflare.com` link on any machine; the UI is at `/ui/` and calls the API on the same origin, so nothing needs editing. The model, data and logs stay on Laptop 1.
 
@@ -371,7 +372,7 @@ Errors: `404` for an unknown trip ID, `500` if the pipeline fails (with a messag
 | PowerShell won't activate the venv | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or use CMD |
 | `FileNotFoundError ... data\train` | The dataset isn't in `data/` (Section 6) or `PATHSNAP_DATA_DIR` is wrong |
 | `FileNotFoundError models/final/model.joblib` | `git pull`, or run steps 5–8 of Section 9 |
-| UI: "Cannot reach the API" / red pill | API not running; wrong IP in `frontend/config.js`; firewall rule missing; laptops on different networks |
+| UI: "Cannot reach the API" / red pill | API not running, or the page points at the wrong origin: `config.js` must stay `""` when the API serves the page (`/ui/`, tunnel link), and hold Laptop 1's IP only for a separately served `frontend/`. Also check the firewall rule and that both laptops are on the same network |
 | UI loads but the map is blank | No internet (map tiles come from OpenStreetMap). Routes still load |
 | Folium map shows "403 Access blocked" tiles | The HTML was opened by double-clicking. Serve it with `python -m http.server 5600 --directory results` and open it via `http://127.0.0.1:5600/...` |
 | `Address already in use` on port 8000 or 5500 | Another server is running; close it or use another port (`--port 8001`) |
