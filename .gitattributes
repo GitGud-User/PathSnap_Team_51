@@ -2,3 +2,5 @@
 *.png binary
 *.gz binary
 *.joblib binary
+*.pdf binary
+*.html text eol=lf
