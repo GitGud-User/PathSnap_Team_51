@@ -298,7 +298,9 @@ Both laptops must be on the **same network**. If the venue Wi-Fi blocks device-t
    ```
 5. Open **http://127.0.0.1:5500**. The panel picks any trip, and Laptop 1's console shows the request being processed.
 
-More detail: [docs/DEPLOY.md](docs/DEPLOY.md).
+**Different networks, or Wi-Fi that blocks devices from reaching each other?** Use a Cloudflare quick tunnel instead. On Laptop 1, run `cloudflared tunnel --url http://127.0.0.1:8000` next to the API, then put the printed `https://….trycloudflare.com` URL in Laptop 2's `frontend/config.js`. The API and its logs stay on Laptop 1.
+
+More detail, including both options and how to view the Folium maps: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ---
 
@@ -370,6 +372,7 @@ Errors: `404` for an unknown trip ID, `500` if the pipeline fails (with a messag
 | `FileNotFoundError models/final/model.joblib` | `git pull`, or run steps 5–8 of Section 9 |
 | UI: "Cannot reach the API" / red pill | API not running; wrong IP in `frontend/config.js`; firewall rule missing; laptops on different networks |
 | UI loads but the map is blank | No internet (map tiles come from OpenStreetMap). Routes still load |
+| Folium map shows "403 Access blocked" tiles | The HTML was opened by double-clicking. Serve it with `python -m http.server 5600 --directory results` and open it via `http://127.0.0.1:5600/...` |
 | `Address already in use` on port 8000 or 5500 | Another server is running; close it or use another port (`--port 8001`) |
 | A long trip takes a few seconds | Expected for trips with ~19k fixes; the spinner shows progress and uvicorn logs each stage |
 | `pip` fails building `shapely` / `pyproj` | Use Python 3.11 (prebuilt wheels exist); upgrade pip first |
