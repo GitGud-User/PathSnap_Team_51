@@ -65,6 +65,25 @@
 | Large **off-route clusters** (corrected in Stage 2: these are *not* routes that end early) | Trip 54: 16,849 of 19,313 fixes are > 50 m from the route, all inside a ~1 × 1 km patch. Trip 33: 3,445 of 5,844 inside a ~0.35 × 1 km patch. The pattern fits a long stop or off-network area (car park) with GPS drift. The drift also inflates their "GPS path length" (169 km and 48 km). Trips 2 and 84 have smaller clusters | These fixes get the label **"unmatched / no label"**. They are left out of training labels and accuracy denominators, and we report the count. In Stage 3 we will also flag them as *stationary* (low displacement over a time window) |
 | No consecutive duplicate arcs in routes | 0 | – |
 
+## 5b. Cross-check with Pulkit's independent analysis
+
+Pulkit audited the same 90 trips independently. Every claim we hadn't measured was re-run with `python -m pathsnap.data.extra_checks`, which writes `results/eda/extra_checks.csv`.
+
+| Claim | Our measurement | Verdict |
+|---|---|---|
+| 3 trips have fractional-second timestamps (2, 71, 97) | same 3 trips | ✅ new finding, now recorded. Speed must use the true Δt |
+| The route always lies in the largest weak component | true for all 90 | ✅ new and useful: the HMM's shortest-path search can live inside that component |
+| 92 duplicate node coordinates | 92 | ✅ |
+| Arcs under 1 m: 4,976 | 4,988 (UTM projection; difference comes from the distance method) | ✅ |
+| Zero-length arcs: 177 | **106** exactly zero (matches our earlier count) | ⚠️ different threshold; we use 106 = exactly 0 m |
+| 10 trips revisit route arcs (loops) | 10 | ✅ |
+| 13 route breaks across 10 trips | **14 across 11** (train 13 + student_test `00000076` 1), confirmed by both the C# and Python audits | ⚠️ the 14th break is in student-test trip 76 |
+| Arcs within 20 m: median 2–8; within 50 m: 4–32 | median of trip medians 4 (range 0–8) and 8 (range 0–32). On average 3.2 % of fixes have **no** arc within 20 m | ✅ supports a candidate radius of 30–50 m |
+| Route start/end within ~10–200 m of the track | median 33 m (start) / 27 m (end), **max 457 / 548 m** | ⚠️ wider than stated |
+| Trip 54: parked about 175 m from the route end for the last ~4.3 h | far fixes run from the 2nd decile of the trip to the end, inside a ~1 km patch | ✅ consistent with our "off-route cluster" |
+| Trip 33: the route ends ~30 % in and the vehicle continues elsewhere | % of far fixes per time decile: `0, 41, 28, 44, 100, 100, 100, 100, 77, 0`. The GPS **returns to the route in the last decile** | ❌ The route doesn't end early. The vehicle leaves the route mid-trip (deciles 2–9, a ~0.35 × 1 km area) and comes back |
+| GPS noise inflates track length (trip 2: 56 km over 5 km displacement) | agrees with our gps_path_m vs route_len_m | ✅ never use track length as trip length |
+
 ## 6. Decisions still open (team to confirm)
 
 - Choose the candidate radius and top-K from the miss-rate curve on **train only**.

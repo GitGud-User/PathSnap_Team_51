@@ -15,3 +15,5 @@ results/**/cache/
 
 # Official PDFs are course material, not ours
 docs/official_materials/
+
+logs/

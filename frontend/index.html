@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PathSnap Evaluator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bg:#f9f9f7; --panel:#fcfcfb; --ink:#0b0b0b; --muted:#52514e; --line:#e1e0d9;
+          --accent:#2a78d6; --gps:#2a78d6; --clf:#eb6834; --hmm:#6250d6; --err:#d03b3b; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+          --bg:#0d0d0d; --panel:#1a1a19; --ink:#f0efec; --muted:#c3c2b7; --line:#2c2c2a;
+          --accent:#3987e5; --gps:#3987e5; --clf:#d95926; --hmm:#9085e9; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; } header span { color:var(--muted); }
+  main { display:grid; grid-template-columns: 320px 1fr; height: calc(100vh - 56px); }
+  aside { padding:16px; overflow:auto; border-right:1px solid var(--line); background:var(--panel); }
+  #map { height:100%; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 8px; }
+  .trips { display:grid; grid-template-columns: 1fr 1fr; gap:6px; }
+  .trips button { padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg);
+                  color:var(--ink); cursor:pointer; font: 13px ui-monospace,monospace; }
+  .trips button:hover { border-color:var(--accent); }
+  .trips button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .status { margin-top:12px; min-height:20px; color:var(--muted); }
+  .status.err { color:var(--err); }
+  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--accent);
+             border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  table { width:100%; border-collapse:collapse; font-variant-numeric: tabular-nums; }
+  td { padding:4px 0; border-bottom:1px solid var(--line); } td:last-child { text-align:right; }
+  .legend div { display:flex; align-items:center; gap:8px; margin:4px 0; }
+  .sw { width:18px; height:4px; border-radius:2px; } .dot { width:8px; height:8px; border-radius:50%; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; height:auto; } #map { height:60vh; } }
+</style>
+</head>
+<body>
+<header><h1>PathSnap</h1><span>map-matching &amp; route reconstruction · evaluator console</span></header>
+<main>
+  <aside>
+    <h2>Evaluation trips <span id="partition"></span></h2>
+    <div class="trips" id="trips"></div>
+    <div class="status" id="status">Connecting to API…</div>
+    <h2>Legend</h2>
+    <div class="legend">
+      <div><span class="dot" style="background:var(--gps)"></span>Raw GPS fixes</div>
+      <div><span class="sw" style="background:var(--clf)"></span>Classifier-only route</div>
+      <div><span class="sw" style="background:var(--hmm)"></span>HMM / Viterbi route (final)</div>
+    </div>
+    <h2>Metrics (computed server-side)</h2>
+    <table id="metrics"><tr><td colspan="2" style="color:var(--muted)">Select a trip.</td></tr></table>
+    <h2>Timings</h2>
+    <table id="timings"></table>
+  </aside>
+  <div id="map"></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
