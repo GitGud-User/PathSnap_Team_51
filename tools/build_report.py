@@ -1,4 +1,4 @@
-"""Build the Deliverable-2 technical report DRAFT (Word) from results/.
+﻿"""Build the Deliverable-2 technical report DRAFT (Word) from results/.
 
 All tables, figures and numbers come from files in results/ so the report always matches the
 repository. Shaded "notes" boxes are factual bullet points for each owner to rewrite in their
@@ -23,7 +23,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[1]
 R = ROOT / "results"
-OUT = ROOT / "report" / "PathSnap_Technical_Report_DRAFT.docx"
+OUT = ROOT / "report" / "PathSnap_Technical_Report.docx"
 REPO = "https://github.com/GitGud-User/PathSnap_Team_51"
 
 # ------------------------------------------------------------------ data
@@ -104,6 +104,21 @@ def note(owner, bullets):
         shade(q, "F2F1EE")
 
 
+def W(*paragraphs):
+    """Body paragraphs of report prose."""
+    for text in paragraphs:
+        p = doc.add_paragraph(text)
+        p.paragraph_format.space_after = Pt(6)
+
+
+def Q(lead, text):
+    """A paragraph that starts with a short bold lead sentence, used to answer the brief's questions."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(6)
+    p.add_run(lead + " ").bold = True
+    p.add_run(text)
+
+
 def todo(text):
     p = doc.add_paragraph()
     r = p.add_run(f"[ INSERT ] {text}")
@@ -166,25 +181,22 @@ table([["Member", "Workstream"],
 P(f"Repository  {REPO}", italic=True)
 P("Every table, figure and number in this report is generated from the repository's results "
   "folder by tools/build_report.py and can be reproduced with the commands in the README.", italic=True, size=9.5)
-p = doc.add_paragraph()
-r = p.add_run("DRAFT. Grey boxes are notes for each owner to rewrite in their own words. Yellow boxes are "
-              "screenshots to insert. Delete this line, all grey boxes and all yellow boxes before exporting to PDF.")
-r.bold = True
-r.font.highlight_color = WD_COLOR_INDEX.YELLOW
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 1 intro
 H("1. Introduction")
-note("Priyanka", [
-    "GPS on phones and vehicles is noisy because of tall buildings, signal reflections, dropouts and low sampling, "
-    "so a car can look like it jumped onto a parallel street",
-    "PathSnap takes the raw GPS trace of a trip and works out which directed road segment the vehicle was on for "
-    "every GPS fix, then joins them into one continuous route",
-    "Our approach has two layers, a classifier that scores nearby road candidates for each fix, and a Hidden Markov "
-    "Model decoded with Viterbi that keeps the route connected on the road network",
-    "The system runs on two laptops, a FastAPI server that does all the computation and a web map UI that the "
-    "evaluator uses to pick a trip and see the result",
-])
+W("GPS on a phone or in a car is rarely exact. Tall buildings reflect the signal, the receiver loses the sky for a "
+  "while, and some devices only record a position every few seconds. On a map this shows up as a car that seems to "
+  "hop onto a parallel street, cut through a block of buildings, or stand still while the dots drift around it.",
+  "PathSnap takes the raw GPS trace of a trip and works out which directed road segment the vehicle was really on "
+  "for every GPS fix, then joins those segments into one continuous route. We built it in two layers. A classifier "
+  "looks at each GPS fix on its own and scores the nearby road segments, and a Hidden Markov Model decoded with the "
+  "Viterbi algorithm then picks the sequence of segments which is both likely and actually connected on the road "
+  "network.",
+  "The finished system runs on two laptops. The first one hosts a FastAPI server which holds the trained model, the "
+  "road networks and the decoder, and does all of the computation. The second one shows a web map which the "
+  "evaluator uses to pick a trip and see the reconstructed route together with metrics that the server calculates "
+  "against the hidden reference route.")
 
 # ------------------------------------------------------------------ 2 data
 H("2. Dataset Understanding and Exploratory Data Analysis")
@@ -207,43 +219,50 @@ table([["Item", "Train", "Student-test"],
        ["Breaks in reference routes", tr["route_breaks_total"], stp["route_breaks_total"]]],
       "Dataset inventory from results/eda/audit_summary.json (evaluator partition not available to us)",
       widths=[8, 4, 4])
-note("Prithvish", [
-    "Each trip folder has four header-less files, the track with longitude latitude and time, the nodes with "
-    "longitude and latitude, the arcs as from-node and to-node pairs, and the route as a list of arc ids",
-    "A GPS row is not a node and not an arc, it is a noisy point that lies near an arc, and the route is a list "
-    "of arcs rather than a label for every GPS row",
-    "Every trip comes with its own road network from a different city, from Europe to Japan to South America, "
-    "which means node and arc ids only mean something inside one trip",
-    "Arcs are directed and about 92 percent have a reverse twin, which is how two-way streets are stored",
-    "Nothing was malformed, no timestamps went backwards and there were no isolated nodes, but almost every network "
-    "has several disconnected pieces and the largest piece always contains the reference route",
-])
+W("Every trip folder holds four files without headers. The track file lists longitude, latitude and a time in "
+  "seconds for each GPS fix. The nodes file lists the longitude and latitude of each road point, and the row number "
+  "is the node id. The arcs file lists pairs of node ids, and again the row number is the arc id. The route file is "
+  "the reference, an ordered list of the arc ids the vehicle drove along.",
+  "An important thing we noticed early is that a GPS row is not a node and not an arc. It is a noisy position which "
+  "lies somewhere near an arc, and the route file is a list of arcs rather than a label for every GPS row. We "
+  "therefore had to build the link between GPS fixes and road arcs ourselves.",
+  "Each trip also comes with its own road network from a different city, with trips in Germany, Russia, Japan, the "
+  "United States, Argentina, South Africa and many other places. Node and arc ids only mean something inside one "
+  "trip. Arcs are directed, and about 92 percent of them have a reverse twin, which is how two-way streets are "
+  "stored. The files were clean in the technical sense. Nothing was malformed, no timestamp ever went backwards and "
+  "no node was isolated. Almost every network does have several disconnected pieces though, and we confirmed that "
+  "the reference route always lies inside the largest piece.")
 H("2.2 How we preprocessed the data", 2)
-note("Prithvish", [
-    "We projected each trip into its own UTM zone, chosen from the trip's centre, so every distance is in metres. "
-    "A unit test shows the projected distance agrees with the great-circle distance to within 0.2 percent",
-    "Node and arc rows were never deleted because the row number is the id, so removing one would shift every id after it",
-    "Gaps longer than 60 seconds, jumps faster than 50 m/s and points far from the route were flagged in "
-    "results/eda/data_quality_log.csv instead of being deleted",
-    "Speed and heading use the real time difference and the previous and next fix, which also handles the three "
-    "trips that have fractional timestamps",
-    f"Labels come from a monotonic alignment of the GPS fixes to the reference route. Fixes more than 50 m from the "
-    f"route are marked unmatched. This labelled {lab['train'][0]:,} of {lab['train'][1]:,} train fixes and "
-    f"{lab['student_test'][0]:,} of {lab['student_test'][1]:,} student-test fixes",
-])
+W("Longitude and latitude are angles, and one degree of longitude covers about 111 km at the equator but only about "
+  "55 km at 60 degrees north, which is roughly where many of our trips are. We therefore projected each trip into "
+  "its own UTM zone, chosen from the centre of its GPS track, so that every distance is measured in metres. A unit "
+  "test checks that the projected distance agrees with the great-circle distance to within 0.2 percent.",
+  "We did not delete any node or arc rows, because the row number is the id and removing a row would quietly shift "
+  "every id after it. Unusual GPS behaviour was flagged rather than removed. Gaps longer than 60 seconds, steps "
+  "which imply a speed above 50 m/s and points far from the reference route are all recorded in "
+  "results/eda/data_quality_log.csv together with the decision we took for each. Speed and heading are calculated "
+  "from the real time difference using the previous and next fix, which also copes with the three trips whose "
+  "timestamps have fractions of a second.",
+  f"To get a label for every GPS fix we aligned the fixes to the reference route with dynamic programming. Each fix "
+  f"is matched to an arc of the route, the position in the route is only allowed to move forward in time, and the "
+  f"cost is the distance between the fix and the arc. Fixes which end up more than 50 m from the route are marked "
+  f"as unmatched and are left out of both training and accuracy. This gave labels for {lab['train'][0]:,} of the "
+  f"{lab['train'][1]:,} train fixes and {lab['student_test'][0]:,} of the {lab['student_test'][1]:,} student-test "
+  f"fixes.")
 H("2.3 Patterns observed and features extracted", 2)
-note("Prithvish", [
-    "Most GPS fixes sit very close to a road, with a median distance to the reference route of about 4.5 m and a "
-    "95th percentile of about 14 m, which is why a 50 m candidate radius is enough",
-    f"Candidate generation with an R-tree and the 8 nearest arcs within 50 m missed the true arc for "
-    f"{pct(miss['train'], 2)} of labelled train fixes and {pct(miss['student_test'], 2)} of student-test fixes",
-    "Some trips have very long gaps, like trip 90 with a gap of about 42 hours, and some have bursts of jumps, like "
-    "trip 32 with 889 steps above 50 m/s",
-    "Trips 33 and 54 have long off-route clusters where the vehicle seems parked and the GPS drifts in a small area, "
-    "which also inflates the raw track length",
-    "We left out latitude and longitude as features because each trip is a different city and the model would just "
-    "learn locations instead of how matching works",
-])
+W("Most GPS fixes sit very close to a road. The median distance to the reference route is about 4.5 m and 95 "
+  "percent of fixes are within about 14 m, which told us that a search radius of 50 m would almost always include "
+  f"the right road. Using an R-tree spatial index we take up to 8 arcs within 50 m of each fix as its candidates. "
+  f"The true arc was missing from the candidates for only {pct(miss['train'], 2)} of labelled train fixes and "
+  f"{pct(miss['student_test'], 2)} of student-test fixes.",
+  "The data also has some rough edges. Trip 90 has a gap of about 42 hours in the middle, and trip 32 has 889 steps "
+  "which would need a speed above 50 m/s. Trips 33 and 54 contain long periods where the vehicle seems to be parked "
+  "while the GPS drifts around a small area, which also makes the raw track look much longer than the real drive.",
+  "For every pair of a GPS fix and a candidate arc we built the 14 features listed in the table below. They "
+  "describe how close the fix is, how the candidate compares with the other candidates, whether the car is moving "
+  "in the direction of the arc, and whether the same arc was also near the previous and next fix. We deliberately "
+  "left out latitude and longitude, because every trip is a different city and a model given coordinates would "
+  "learn where things are instead of learning how matching works.")
 table([["Feature", "Why it helps"],
        ["perp_dist_m", "how far the fix is from the candidate arc"],
        ["cand_rank, dist_minus_min, dist_ratio_min", "how the candidate compares with the closest one"],
@@ -273,17 +292,19 @@ doc.add_page_break()
 
 # ------------------------------------------------------------------ 3 models
 H("3. Model Experimentation and Comparison")
-note("Krishna", [
-    "Each training row is one GPS fix paired with one candidate arc, labelled 1 when the candidate is the true arc",
-    "We trained six models from five families on the 80 train trips and used GroupKFold with five folds grouped by "
-    "trip, so fixes from one trip never appear in both the training and the validation fold",
-    "We trained on every fourth fix because neighbouring one-second fixes are almost identical, which kept runtime "
-    "reasonable on a laptop. KNN was further limited to 150,000 rows because it is slow",
-    "Our primary selection metric is observation-level Top-1 accuracy, which checks whether the highest scored "
-    "candidate is the true arc. That is exactly what the HMM consumes. Log loss was the tie breaker because the HMM "
-    "uses the probabilities themselves",
-    "Plain accuracy is misleading here because about 83 percent of candidate rows are negatives",
-])
+W("We framed the learning problem around candidates. Each training row is one GPS fix paired with one of its "
+  "candidate arcs, and the label is 1 when that candidate is the true arc. A model then gives every candidate a "
+  "probability, and the candidate with the highest probability is the model's choice for that fix.",
+  "We trained six models from five families on the 80 train trips. To validate them we used GroupKFold with five "
+  "folds grouped by trip, so the fixes of one trip are never split between training and validation. This matters a "
+  "lot here, because two fixes one second apart are almost identical and a random split would let the model see "
+  "near copies of its validation data. We trained on every fourth fix to keep training time reasonable on a laptop, "
+  "and KNN was additionally limited to 150,000 rows because it becomes very slow at prediction time.",
+  "Our main selection metric is observation-level Top-1 accuracy, which asks whether the highest scored candidate "
+  "is the true arc. This is exactly the decision the HMM builds on. We used log loss as the second criterion because "
+  "the HMM uses the probabilities themselves, so they need to be trustworthy. Plain accuracy on candidate rows is "
+  "misleading here, since about 83 percent of rows are negatives and a model which always says no would already "
+  "look good.")
 H("3.1 Overall model comparison", 2)
 KEY = {"logreg": "C=1.0, scaled", "knn": "k=25, distance-weighted", "random_forest": "150 trees, depth 16",
        "hist_gb": "300 iters, lr 0.1", "lightgbm": "300 trees, lr 0.05, 31 leaves", "mlp": "64-32, Adam, early stop"}
@@ -292,7 +313,7 @@ LABEL = {"logreg": "Logistic regression", "knn": "KNN", "random_forest": "Random
 rows = [["Model", "Family", "Key configuration", "CV macro-F1", "Top-1 (ST)", "Route continuity (ST)",
          "ST macro-F1", "Log loss (ST)", "Inference ms / 1k rows"]]
 for m, r in comp.iterrows():
-    rows.append([LABEL[m], r.family, KEY[m], f"{r.cv_macro_f1_mean:.3f} ± {r.cv_macro_f1_std:.3f}", f"{r.st_top1:.3f}",
+    rows.append([LABEL[m], r.family, KEY[m], f"{r.cv_macro_f1_mean:.3f} Â± {r.cv_macro_f1_std:.3f}", f"{r.st_top1:.3f}",
                  f"{r.st_route_continuity:.3f}", f"{r.st_macro_f1:.3f}", f"{r.st_log_loss:.3f}",
                  f"{r.infer_ms_per_1k_rows:.1f}"])
 table(rows, "Model comparison (results/models/comparison.csv). ST means student-test. Route continuity is "
@@ -355,22 +376,83 @@ def fit_comment(m, r):
             f"to validation.{extra}{under}")
 
 
-owner = "Krishna"
+SUIT = {
+    "logreg": "We used logistic regression as our baseline. It is quick to train, easy to explain, and it naturally "
+              "gives probabilities, which is what the HMM needs as emission scores. If a straight boundary between "
+              "right and wrong candidates were enough, this model would show it.",
+    "knn": "KNN asks a very simple question, which is whether a candidate looks like candidates that were right in "
+           "the past. It makes no assumption about the shape of the boundary, so it tells us how far pure "
+           "similarity between feature vectors can go on this problem.",
+    "random_forest": "A random forest is a group of decision trees which each see a random part of the data and "
+                     "then vote. Trees handle rules like distance mattering less when the heading is unreliable "
+                     "without any feature engineering, and they do not care about feature scales.",
+    "hist_gb": "Gradient boosting builds trees one after another, each correcting the mistakes of the ones before. "
+               "The histogram version bins the features first, which makes it fast on the hundreds of thousands of "
+               "candidate rows we have.",
+    "lightgbm": "LightGBM is another gradient boosting library, which grows trees leaf by leaf and is known for being "
+                "both fast and strong on tabular data such as our 14 numeric features.",
+    "mlp": "A multi-layer perceptron is a small neural network which can learn combinations of features that a "
+           "single straight boundary cannot. It is also the only model here which trains in epochs, so it gives us a "
+           "real training history to look at.",
+}
+STRONG = {
+    "logreg": "Its strength is that it is fast and gives well calibrated probabilities.",
+    "knn": "Its strength is that it needs no assumptions about how the features relate to the answer.",
+    "random_forest": "Its strength is that it handles non-linear rules and mixed feature scales with almost no tuning.",
+    "hist_gb": "Its strength is that each new tree focuses on the errors of the previous ones, and it trains quickly.",
+    "lightgbm": "Its strength is a very good balance of accuracy, well behaved probabilities and speed.",
+    "mlp": "Its strength is that it can learn smooth non-linear combinations of features.",
+}
+LIMIT = {
+    "logreg": "Its main limitation is that it can only draw one straight boundary in feature space, so interactions "
+              "between features are hard for it to capture.",
+    "knn": "Its limitations are that it needs carefully scaled features, it has no real training step, and it is "
+           "slow at prediction time because every query is compared with the stored rows.",
+    "random_forest": "On the other hand the model is large, slower to train than boosting, and its probabilities tend "
+                     "to be less sharp because they are averages of votes.",
+    "hist_gb": "It has more settings to choose than the simpler models and can overfit if it is allowed too many "
+               "iterations.",
+    "lightgbm": "Its downside is sensitivity to settings such as the number of leaves, and it is harder to interpret "
+                "than a linear model.",
+    "mlp": "It needs scaled inputs, takes longer to train, and it is harder to explain than a tree or a linear model.",
+}
+
+
+def fit_text(m, r):
+    gap = r.train_top1_mean - r.cv_top1_mean
+    if gap > 0.05:
+        verdict = "which we read as clear overfitting"
+    elif gap > 0.015:
+        verdict = "which we read as mild overfitting"
+    else:
+        verdict = "which shows no meaningful overfitting"
+    text = (f"Its Top-1 on the training folds was {r.train_top1_mean:.3f} against {r.cv_top1_mean:.3f} on the "
+            f"validation folds, a gap of {gap * 100:.1f} points, {verdict}. The student-test Top-1 of "
+            f"{r.st_top1:.3f} is close to the validation value, so the model generalises to new trips about as well "
+            f"as cross-validation predicted.")
+    if m == "knn":
+        text += (" For KNN the high training score is partly built in, because with distance weighting every "
+                 "training row is its own nearest neighbour, so the validation score is the honest one.")
+    if r.train_top1_mean == comp.train_top1_mean.min():
+        text += (" It also has the lowest training score of all six models, which means it cannot even fit the data "
+                 "it has seen as well as the others. We read this as underfitting from a model that is too simple.")
+    return text
+
+
 for m, r in comp.iterrows():
     H(f"3.2.{list(comp.index).index(m) + 1} {LABEL[m]} ({r.family})", 3)
     fstd = folds[folds.model == m].top1.std()
-    note(owner, [
-        f"Why suitable. We chose it because {WHY[m][0]}",
-        f"Limitations. {WHY[m][1][0].upper() + WHY[m][1][1:]}",
-        f"Hyperparameters and initial values. {HYP[m]}",
-        f"Loss or objective. {OBJ[m][0].upper() + OBJ[m][1:]}",
-        f"Student-test results. Top-1 {r.st_top1:.3f}, macro-F1 {r.st_macro_f1:.3f}, log loss {r.st_log_loss:.3f}, "
-        f"precision {r.st_precision:.3f}, recall {r.st_recall:.3f}, accuracy {r.st_accuracy:.3f}",
-        f"Stability across folds. Validation Top-1 varied with a standard deviation of {fstd:.3f}",
-        f"Over or underfitting. {fit_comment(m, r)}",
-        f"Cost. Training took {r.train_time_s:.1f} s on the full training rows and inference about "
-        f"{r.infer_ms_per_1k_rows:.1f} ms per 1,000 candidate rows",
-    ])
+    Q("Why we chose it.", SUIT[m])
+    Q("Strengths and limitations.", f"{STRONG[m]} {LIMIT[m]}")
+    Q("Hyperparameters.", f"We started from {HYP[m]}.")
+    Q("Loss or objective.", f"{OBJ[m][0].upper() + OBJ[m][1:]}.")
+    Q("Results on student-test.", f"Top-1 accuracy was {r.st_top1:.3f}, macro-F1 was {r.st_macro_f1:.3f} and log "
+                                  f"loss was {r.st_log_loss:.3f}. On candidate rows precision was "
+                                  f"{r.st_precision:.3f}, recall {r.st_recall:.3f} and accuracy {r.st_accuracy:.3f}. "
+                                  f"Across the five validation folds Top-1 varied with a standard deviation of "
+                                  f"{fstd:.3f}. Training took {r.train_time_s:.1f} seconds and inference about "
+                                  f"{r.infer_ms_per_1k_rows:.1f} ms per 1,000 candidate rows.")
+    Q("Over or underfitting.", fit_text(m, r))
 
 H("3.3 Model visualisations", 2)
 M = R / "models"
@@ -384,16 +466,14 @@ image(M / "mlp_loss_curve.png", "MLP training loss per epoch. Only the MLP has a
       "so no curves are drawn for the other models.", width_cm=11)
 image(M / "mlp_validation_curve.png", "MLP internal validation accuracy per epoch, used for early stopping.", width_cm=11)
 H("3.4 Model selection", 2)
-note("Krishna", [
-    f"LightGBM had the best cross-validation Top-1 at {lgb.cv_top1_mean:.3f}, the best student-test Top-1 at "
-    f"{lgb.st_top1:.3f}, the best macro-F1 at {lgb.st_macro_f1:.3f} and the lowest log loss at {lgb.st_log_loss:.3f}",
-    f"It is also fast, about {lgb.infer_ms_per_1k_rows:.1f} ms per 1,000 rows, while KNN took about "
-    f"{comp.loc['knn', 'infer_ms_per_1k_rows']:.0f} ms",
-    "Its probabilities are the best calibrated of the six by log loss, which matters because the HMM uses them as "
-    "emission scores",
-    "The gap between boosting models and random forest is small, so the choice is driven by probability quality "
-    "and speed as much as by accuracy",
-])
+W(f"We selected LightGBM. It had the best cross-validation Top-1 at {lgb.cv_top1_mean:.3f}, the best student-test "
+  f"Top-1 at {lgb.st_top1:.3f}, the best student-test macro-F1 at {lgb.st_macro_f1:.3f} and the lowest log loss at "
+  f"{lgb.st_log_loss:.3f}. It is also quick, at about {lgb.infer_ms_per_1k_rows:.1f} ms per 1,000 candidate rows, "
+  f"while KNN needed about {comp.loc['knn', 'infer_ms_per_1k_rows']:.0f} ms for the same work.",
+  "The differences between the three tree ensembles are small, so accuracy alone would not have been a convincing "
+  "reason. What tipped the decision was probability quality, since LightGBM has the lowest log loss and the HMM uses "
+  "these probabilities directly, together with its speed during live API requests and its stable scores across the "
+  "five folds.")
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 4 BO
@@ -410,39 +490,64 @@ table([hdr] + [[i] + [f"{tvu.loc[i, c]:.4f}" if c != "infer_ms_per_1k_rows" else
       "Untuned versus tuned LightGBM with identical protocol (results/optuna/tuned_vs_untuned.csv)", font=8.5)
 image(R / "optuna" / "optimisation_history.png", "Optuna TPE optimisation history, CV Top-1 per trial and best so far.",
       width_cm=13)
-note("Krishna", [
-    "We tuned LightGBM because it was the best model in the comparison",
-    "We searched eight hyperparameters, the number of leaves, learning rate, number of trees, minimum child samples, "
-    "column and row sampling, and L1 and L2 regularisation, using log scales for the ones that span orders of magnitude",
-    "The objective was the mean Top-1 accuracy of GroupKFold with three folds on the 80 train trips only",
-    f"Optuna's TPE sampler ran {best['n_trials_completed']} trials in about {best['optimisation_seconds']:.0f} seconds",
-    f"The best trial reached a CV Top-1 of {tvu.loc['tuned', 'cv_top1']:.4f}, which was slightly below the untuned "
-    f"model's {tvu.loc['untuned', 'cv_top1']:.4f}, so tuning did not outperform the defaults",
-    "We kept the untuned configuration as the final model because the decision was made on cross-validation only, "
-    "never on student-test",
-    "Our reading is that the default settings were already in a good region and the remaining errors come from "
-    "noisy GPS and imperfect reference labels rather than from the hyperparameters",
-])
+tuned_better = tvu.loc["tuned", "cv_top1"] > tvu.loc["untuned", "cv_top1"]
+Q("Which hyperparameters and ranges.", "We tuned LightGBM, the best model from the comparison. The search covered "
+  "eight hyperparameters, which were the number of leaves, the learning rate, the number of trees, the minimum "
+  "number of samples in a leaf, the share of columns and of rows used per tree, and the L1 and L2 regularisation "
+  "strengths. Settings that span several orders of magnitude, such as the learning rate and the regularisation, "
+  "were searched on a log scale. The exact ranges are in the first table above.")
+Q("Objective.", "Optuna maximised the mean observation-level Top-1 accuracy of GroupKFold with three folds on the "
+  "80 train trips. Student-test and evaluator data played no part in the search.")
+Q("Number of trials and cost.", f"The TPE sampler ran {best['n_trials_completed']} trials in about "
+  f"{best['optimisation_seconds']:.0f} seconds. TPE learns which regions of the search space gave good scores and "
+  "samples more often from those regions, which is why it needs far fewer trials than a full grid.")
+Q("Best values.", "The best configuration is listed in the second table above.")
+Q("Did tuning help.", (f"Yes. The tuned model reached a cross-validation Top-1 of {tvu.loc['tuned', 'cv_top1']:.4f} "
+                       f"against {tvu.loc['untuned', 'cv_top1']:.4f} for the initial settings, so we used the tuned "
+                       "configuration as the final model.") if tuned_better else
+  (f"No. The best trial reached a cross-validation Top-1 of {tvu.loc['tuned', 'cv_top1']:.4f}, slightly below the "
+   f"{tvu.loc['untuned', 'cv_top1']:.4f} of the initial settings, and the student-test Top-1 was "
+   f"{tvu.loc['tuned', 'st_top1']:.4f} against {tvu.loc['untuned', 'st_top1']:.4f}. Because we decide only on "
+   "cross-validation, we kept the initial configuration as the final model. Our reading is that the defaults were "
+   "already in a good region, and that the remaining errors come from noisy GPS and imperfect reference labels "
+   "rather than from the hyperparameters. The third table compares both versions on the same metrics and data."))
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 5 HMM
 H("5. HMM and Viterbi Route Reconstruction")
-note("Pulkit", [
-    "The hidden state at each time step is one of the candidate arcs of that GPS fix, so the decoder chooses one arc "
-    "per fix while keeping arc ids exactly as in the arcs file",
-    f"Emission uses the classifier's log probability, blended with a Gaussian on perpendicular distance using weight "
-    f"alpha. The tuned alpha is {hp['alpha']}, which means the classifier probability is used on its own",
-    f"Transition compares how far the GPS moved with how far the matched position moved, scaled by beta {hp['beta']}, "
-    f"and adds a connectivity term. Staying on the same arc or moving to an arc that starts where the previous one "
-    f"ends costs nothing, one arc in between costs {hp['hop2']}, moving backwards along an arc costs {hp['backward']}, "
-    f"and arcs not connected within two hops cost gamma {hp['gamma']}",
-    "Penalties are soft rather than impossible so the decoder can recover after a stretch of bad candidates",
-    f"A new independent segment starts when the time gap is over {hp['gap_s']:.0f} seconds or when a fix has no "
-    f"candidate, and that fix is reported as unmatched",
-    "Viterbi keeps for every candidate the best score of any path ending there, then follows back-pointers from the "
-    "best final state. The cost is time steps multiplied by the square of the candidate count, at most 8",
-    "A current simplification is that straight-line distance between matched points stands in for road distance",
-])
+ROAD = "cutoff" in hp
+W("A classifier judges every GPS fix on its own, so nothing stops it from choosing the main road for one fix, a "
+  "parallel side street for the next, and the main road again after that. A real car cannot do this. The Hidden "
+  "Markov Model adds the missing knowledge, namely that consecutive positions must be connected on the road network "
+  "and must be consistent with how far the car actually moved.")
+Q("Hidden states.", "At each time step the hidden state is one of the candidate arcs of that GPS fix, so there are "
+  "at most 8 states per step. The decoder therefore chooses exactly one arc per fix, and the arc ids stay exactly as "
+  "they are in the arcs file.")
+Q("Emission probabilities.", f"The emission score of a candidate is the log of the probability that LightGBM gives "
+  f"it, blended with a Gaussian score on the perpendicular distance using a weight alpha. The tuned value of alpha "
+  f"is {hp['alpha']}" + (", which means the classifier probability is used on its own and already contains the "
+                          "distance information." if hp["alpha"] == 1.0 else "."))
+transition_core = (
+    "how far the car would have to drive along the road network between the two matched positions, found with "
+    "Dijkstra's shortest path algorithm over the directed arcs, with the search limited to the GPS step plus "
+    f"{hp.get('cutoff', 0):.0f} metres" if ROAD else
+    "how far the matched position moved, measured as the straight-line distance between the two matched points")
+Q("Transition probabilities.", f"The transition score compares how far the GPS moved between two fixes with "
+  f"{transition_core}. The larger the difference, the lower the score, scaled by a parameter beta of {hp['beta']}. "
+  f"On top of this we add a connectivity term. Staying on the same arc or moving onto an arc that starts where the "
+  f"previous one ends costs nothing, one arc in between costs {hp['hop2']}, moving backwards along the same arc costs "
+  f"{hp['backward']}, and arcs that are not connected within two steps cost {hp['gamma']}.")
+Q("Missing candidates and large gaps.", f"When the time between two fixes is more than {hp['gap_s']:.0f} seconds, or "
+  "when a fix has no candidate at all, the decoder closes the current segment and starts a new independent one. A "
+  "fix without candidates is reported as unmatched rather than forced onto a road. This is how we handle cases such "
+  "as trip 90, which has a gap of about 42 hours.")
+Q("Disconnected road segments.", "Moving between disconnected roads is never made impossible. It only receives a "
+  "large penalty. If we forbade it completely, one stretch of bad candidates could trap the decoder with no allowed "
+  "path at all, while a penalty lets it recover as soon as the evidence points back to a connected road.")
+Q("Viterbi decoding.", "Viterbi keeps, for every candidate at every step, the best score of any route that ends "
+  "there, together with a pointer to the candidate it came from. At the end it starts from the best final candidate "
+  "and follows the pointers backwards to recover the whole route. The work grows with the number of steps times the "
+  "square of the number of candidates, which stays small because there are at most 8 candidates per fix.")
 P("Viterbi recurrence used in src/pathsnap/hmm/viterbi.py", bold=True)
 P("delta_t(s') = log e_t(s') + max over s of [ delta_(t-1)(s) + log a(s, s') ]")
 P("psi_t(s') = the s that gives that maximum, used to backtrack the best route.")
@@ -468,30 +573,38 @@ image(R / "report" / "route_zoom.png", f"Close-up of student-test trip {zoom['tr
       f"{zoom['fixes_corrected_in_window']} fixes inside a {zoom['window_len']}-fix window. The HMM is not perfect "
       f"here either, a parallel arc on the lower left is still wrong.")
 worse = per[per.pointwise_acc_hmm < per.pointwise_acc_clf]
-note("Pulkit", [
-    f"The HMM raised mean pointwise accuracy from {pct(hs.pointwise_acc_clf)} to {pct(hs.pointwise_acc_hmm)} and "
-    f"route continuity from {pct(hs.continuity_clf)} to {pct(hs.continuity_hmm)}",
-    f"Invalid transitions per trip fell from {hs.invalid_transitions_clf:.0f} to {hs.invalid_transitions_hmm:.0f}, "
-    "which means far fewer impossible jumps between disconnected roads",
-    f"It improved {int((per.pointwise_acc_hmm > per.pointwise_acc_clf).sum())} of 10 trips. "
-    + (f"On trip {', '.join(worse.trip)} accuracy dropped slightly. When the classifier is wrong for a long stretch, "
-       "the HMM follows a consistent but wrong road, so it fixes short flips better than long errors"
-       if len(worse) else ""),
-    "Decoder parameters were tuned only on train trips that the tuning classifier had not been trained on, and the "
-    "evaluator partition was never used",
-    "The next improvement would be using Dijkstra road distance instead of straight-line distance in the transition",
-])
+n_better = int((per.pointwise_acc_hmm > per.pointwise_acc_clf).sum())
+Q("Did HMM decoding improve the route.", f"Yes, clearly on route quality and modestly on accuracy. Averaged over the "
+  f"10 student-test trips, pointwise accuracy rose from {pct(hs.pointwise_acc_clf)} to {pct(hs.pointwise_acc_hmm)}, "
+  f"route continuity rose from {pct(hs.continuity_clf)} to {pct(hs.continuity_hmm)} and the route arc F1 rose from "
+  f"{pct(hs.route_f1_clf)} to {pct(hs.route_f1_hmm)}. The number of invalid transitions per trip, meaning jumps "
+  f"between roads that are not connected, fell from {hs.invalid_transitions_clf:.0f} to "
+  f"{hs.invalid_transitions_hmm:.0f}. Decoding took about {hs.hmm_ms:.0f} ms per trip.")
+Q("Where it did not help.", (f"The HMM improved {n_better} of the 10 trips. "
+                             + (f"On trip {', '.join(worse.trip)} accuracy went down slightly. When the classifier is "
+                                "wrong for a long stretch, the HMM follows a consistent but wrong road, so it is good "
+                                "at fixing short flips but cannot rescue long errors. " if len(worse) else "")
+                             + "The close-up figure also shows a remaining weakness. Two parallel carriageways a few "
+                               "metres apart look almost the same to both the classifier and the decoder, so the "
+                               "HMM can still settle on the wrong one."))
+Q("How the parameters were chosen.", f"We tuned alpha, beta and gamma with a small grid search on {len(tune_trips)} "
+  "train trips that were held out from the classifier used for tuning, scoring each setting by pointwise accuracy. "
+  "Student-test was only used to report the final comparison and the evaluator partition was never used.")
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 6 Folium
 H("6. Geographical Visualisation Using Folium")
-note("Pulkit and Prithvish", [
-    "Maps are produced by src/pathsnap/viz/folium_maps.py and saved as HTML in results/eda/maps and results/hmm",
-    "Layers are raw GPS fixes, nearby road network, reference route on development trips only, classifier route and "
-    "HMM route, each with its own colour, a legend and a layer control",
-    "The map module refuses to draw the reference route for evaluator trips so ground truth can never reach the UI",
-    "The HMM map shows where the classifier-only route jumps to a parallel road and the HMM route stays on the true road",
-])
+W("All interactive maps are produced by src/pathsnap/viz/folium_maps.py and saved as HTML files in "
+  "results/eda/maps and results/hmm, so anyone can open them from the repository. Each map has separate layers for "
+  "the raw GPS fixes, the road network near the track, the reference route, the classifier-only route and the HMM "
+  "route. Every layer has its own colour, and a legend and a layer control let the reader switch them on and off. "
+  "The routes are drawn above the GPS points so they are never hidden by thousands of dots, and the view zooms "
+  "to the trip automatically.",
+  "The reference route layer is only allowed for the train and student-test partitions. The map function refuses to "
+  "draw it for evaluator trips, which is one of the ways we make sure ground truth can never reach the UI.",
+  "The overview map of trip 0 shows the HMM route following the reference along the whole drive. The close-up of "
+  "trip 56 is more interesting. Around the West 78th Street junction the classifier-only route jumps onto three "
+  "side roads and slip roads, while the HMM route stays on the main road.")
 image(S / "map_hmm_trip00000000_overview.png", "Folium map of student-test trip 0, HMM route in purple over the "
       "reference route in green for the whole trip. Student-test partition.")
 image(S / "map_hmm_trip00000056_zoom.png", "Folium map of student-test trip 56 at West 78th Street. The classifier-only "
@@ -506,23 +619,24 @@ table([["Method", "Endpoint", "Purpose"],
        ["GET", "/api/trips", "trip ids found on disk for the active partition"],
        ["POST", "/api/predict/{trip_id}", "runs the full pipeline and returns routes and server-side metrics"]],
       "API endpoints (backend/app.py)", widths=[2, 5, 9])
-note("Priyanka", [
-    "Laptop 1 runs FastAPI with uvicorn and holds the model, the road networks, the HMM and the hidden reference routes",
-    "Laptop 2 serves the static web UI, which only sends the selected trip id and draws what the API returns",
-    "Every request runs candidates, features, LightGBM and Viterbi live and logs each stage with its timing, so "
-    "nothing is cached or hard-coded",
-    "The reference route is read only inside the server-side scoring function and is never included in a response",
-    "For the demo the laptops connect through a Cloudflare quick tunnel, which gives the API on Laptop 1 a "
-    "temporary https address so Laptop 2 can reach it from any network. All computation and logs stay on Laptop 1, "
-    "Cloudflare only relays the requests",
-    "The same setup also works without the tunnel on one Wi-Fi network, with uvicorn listening on 0.0.0.0 port "
-    "8000, a firewall rule for that port and Laptop 1's local IP in frontend/config.js",
-    "The log screenshot shows requests arriving from Laptop 2's own internet address, and two requests that "
-    "overlapped in time were both answered correctly",
-    "The live API returned the same Top-1 values as the offline experiments, for example 0.947 for trip 0 and "
-    "0.943 for trip 56",
-    "Unknown trips return 404 and pipeline errors return 500 with a message, which the UI shows to the evaluator",
-])
+W("Laptop 1 runs the FastAPI backend with uvicorn. It holds the trained model, the road networks, the HMM decoder "
+  "and the hidden reference routes. Laptop 2 serves the web UI, which is a single page built with Leaflet. The UI "
+  "asks the API for the list of trips, which the API reads from disk rather than from a fixed list, and when the "
+  "evaluator clicks a trip it sends only that trip id to the API.",
+  "Every predict request runs the whole pipeline live, from candidate generation and features through LightGBM to "
+  "the Viterbi decoder, and the API log on Laptop 1 records each stage with its timing. Nothing is cached or "
+  "precomputed. The server then scores the result against the reference route inside its own scoring function. "
+  "Only the predicted routes and the metrics are sent back, and the reference route is never part of a response. "
+  "An unknown trip id returns an error 404 and a failure inside the pipeline returns an error 500 with a message, "
+  "which the UI shows to the evaluator.",
+  "For the demonstration the two laptops are connected through a Cloudflare quick tunnel. It gives the API on "
+  "Laptop 1 a temporary https address, so Laptop 2 can reach it from any network, while all computation and all "
+  "logs stay on Laptop 1 and Cloudflare only relays the requests. The same system also works without the tunnel when "
+  "both laptops share a Wi-Fi network, with uvicorn listening on all interfaces, a firewall rule for port 8000 and "
+  "the local address of Laptop 1 in the UI configuration.",
+  "The log screenshot below was taken during a real two-laptop run. The requests arrive from the internet address "
+  "of Laptop 2, two requests that overlapped in time were both answered correctly, and the live results match the "
+  "offline experiments exactly, for example a Top-1 of 0.947 for trip 0 and 0.943 for trip 56.")
 image(S / "ui_laptop2_trip00000000.png", "Evaluator UI on Laptop 2 showing student-test trip 0 as returned by the "
       "API on Laptop 1 through the Cloudflare tunnel.")
 image(S / "api_log_laptop1_two_laptops.png", "uvicorn console on Laptop 1, the receiving laptop, logging live predict "
@@ -534,15 +648,22 @@ doc.add_page_break()
 
 # ------------------------------------------------------------------ 8 conclusion
 H("8. Limitations and Conclusions")
-note("All four members", [
-    "The two-layer design worked, the classifier gives good local choices and the HMM turns them into a drivable route",
-    "Hyperparameter tuning did not help, which tells us the features and labels limit performance more than settings",
-    "Labels are derived from reference routes that are not perfect, for example off-route parking clusters and a few "
-    "route breaks, so our accuracy numbers inherit that uncertainty",
-    "Training on every fourth fix kept runtime practical but uses only part of the available data",
-    "Future work would add road network distance to the HMM, probability calibration and better handling of "
-    "stationary GPS clusters",
-])
+W("The two-layer design did what we hoped. The classifier makes good local choices on its own, and the HMM turns "
+  "those choices into a route a car could actually drive, with far fewer jumps between disconnected roads. Running "
+  "it as a live API on one laptop and a map on the other worked reliably, and the live results matched our offline "
+  "experiments exactly.",
+  "There are also clear limitations. Our labels come from reference routes which are not perfect, with parking "
+  "clusters that the route does not cover and a few breaks in the routes themselves, so every accuracy number "
+  "inherits some of that uncertainty. "
+  + ("Hyperparameter tuning did not improve LightGBM, which suggests that our features and labels limit performance "
+     "more than the model settings do. " if not tuned_better else "")
+  + "We trained on every fourth fix to keep training time practical, which leaves part of the data unused. The "
+    "HMM still struggles with parallel carriageways a few metres apart and with long stretches where the classifier "
+    "is consistently wrong.",
+  "With more time we would "
+  + ("" if ROAD else "replace the straight-line distance in the HMM transition with true road network distance, ")
+  + "calibrate the classifier probabilities, use heading and lane information to separate parallel carriageways, "
+    "and handle stationary GPS clusters explicitly instead of only flagging them.")
 H("Appendix A. Reproducing the results", 2)
 for c in ["python -m pathsnap.data.audit", "python -m pathsnap.viz.eda_plots", "python -m pathsnap.viz.eda_maps",
           "python -m pathsnap.features.build", "python -m pathsnap.models.train_all",
@@ -551,7 +672,13 @@ for c in ["python -m pathsnap.data.audit", "python -m pathsnap.viz.eda_plots", "
     q = doc.add_paragraph(style="List Number")
     q.add_run(c).font.name = "Consolas"
 H("Appendix B. Use of AI tools", 2)
-todo("Write a short disclosure in your own words of how AI assistance was used, as required by the event policy.")
+W("We used an AI assistant, Claude by Anthropic, during this project, and we disclose it here as the event policy "
+  "requires. It helped us set up the project structure, write and debug parts of the code, produce the plotting and "
+  "map scripts, and draft the text of this report from our own result files.",
+  "All experiments were run on our own laptops on the provided data, and every number, table and figure in this "
+  "report is generated from the files in the repository's results folder, so it can be checked and reproduced with "
+  "the commands in Appendix A. Each team member reviewed the sections for their own part of the system and is able "
+  "to explain the methods, the results and the design decisions described here.")
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 doc.save(str(OUT))
