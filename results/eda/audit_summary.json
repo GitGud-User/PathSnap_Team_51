@@ -1,0 +1,47 @@
+{
+  "student_test": {
+    "trips": 10,
+    "trips_with_all_4_files": 10,
+    "observations": 19160,
+    "malformed_gps_rows": 0,
+    "gps_km": 297.0,
+    "pct_steps_exactly_1s": 98.62,
+    "trips_with_gap_gt_60s": 1,
+    "jump_steps_gt_50mps": 8,
+    "nodes_total": 90689,
+    "arcs_total": 185041,
+    "arcs_per_trip_min_max": [
+      3577,
+      56027
+    ],
+    "isolated_nodes": 0,
+    "trips_multi_wcc": 10,
+    "route_arcs_total": 3477,
+    "route_breaks_total": 1,
+    "gps_far_from_route_total": 27,
+    "gps2route_median_of_medians_m": 4.59
+  },
+  "train": {
+    "trips": 80,
+    "trips_with_all_4_files": 80,
+    "observations": 208417,
+    "malformed_gps_rows": 0,
+    "gps_km": 2978.4,
+    "pct_steps_exactly_1s": 96.5,
+    "trips_with_gap_gt_60s": 22,
+    "jump_steps_gt_50mps": 1524,
+    "nodes_total": 1933485,
+    "arcs_total": 3876904,
+    "arcs_per_trip_min_max": [
+      649,
+      307392
+    ],
+    "isolated_nodes": 0,
+    "trips_multi_wcc": 79,
+    "route_arcs_total": 31336,
+    "route_breaks_total": 13,
+    "gps_far_from_route_total": 22576,
+    "gps2route_median_of_medians_m": 4.5
+  },
+  "runtime_s": 11.3
+}

@@ -1,0 +1,17 @@
+# Raw data is distributed separately (too large for git, and evaluator data must never be committed)
+/data/*
+!/data/README.md
+
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+*.egg-info/
+
+# Large intermediate tables (regenerate with the scripts)
+*.parquet
+results/**/cache/
+
+# Official PDFs are course material, not ours
+docs/official_materials/

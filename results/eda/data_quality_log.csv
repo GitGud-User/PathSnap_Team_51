@@ -1,0 +1,93 @@
+partition,trip,issue,value,decision
+train,00000001,implied_speed_gt_50mps,340.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000002,time_gaps_gt_60s,5.0,kept; HMM will start a new segment (max gap 160s)
+train,00000002,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000002,gps_far_from_reference_route_pct,12.0,points >50m from route get label UNMATCHED (Stage 3)
+train,00000005,implied_speed_gt_50mps,4.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000006,time_gaps_gt_60s,3.0,kept; HMM will start a new segment (max gap 301s)
+train,00000008,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000011,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 909s)
+train,00000011,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000012,implied_speed_gt_50mps,5.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000013,implied_speed_gt_50mps,112.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000013,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000014,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 72s)
+train,00000019,implied_speed_gt_50mps,2.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000019,reference_route_breaks,3.0,allowed as gaps during label alignment
+train,00000020,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000021,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 2161s)
+train,00000024,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 458s)
+train,00000024,implied_speed_gt_50mps,44.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000024,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000025,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000028,time_gaps_gt_60s,3.0,kept; HMM will start a new segment (max gap 196s)
+train,00000028,implied_speed_gt_50mps,20.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000031,implied_speed_gt_50mps,5.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000032,implied_speed_gt_50mps,889.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000033,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000033,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000033,gps_far_from_reference_route_pct,58.9,points >50m from route get label UNMATCHED (Stage 3)
+train,00000035,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000038,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000038,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000041,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 89s)
+train,00000041,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000042,time_gaps_gt_60s,17.0,kept; HMM will start a new segment (max gap 670s)
+train,00000042,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000042,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000043,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 230s)
+train,00000043,implied_speed_gt_50mps,34.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000043,gps_far_from_reference_route_pct,7.2,points >50m from route get label UNMATCHED (Stage 3)
+train,00000044,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 341s)
+train,00000045,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000053,implied_speed_gt_50mps,7.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000054,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 79s)
+train,00000054,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000054,gps_far_from_reference_route_pct,87.2,points >50m from route get label UNMATCHED (Stage 3)
+train,00000055,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 184s)
+train,00000055,implied_speed_gt_50mps,18.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000055,self_loop_arcs,8.0,"kept; zero-length, excluded from candidates"
+train,00000057,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000060,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000062,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000063,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000064,implied_speed_gt_50mps,2.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000066,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000069,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 2658s)
+train,00000069,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000070,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 152s)
+train,00000071,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000072,fragmented_network_largest_wcc_pct,89.0,HMM must tolerate 'no path' transitions
+train,00000074,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000075,reference_route_breaks,2.0,allowed as gaps during label alignment
+train,00000078,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 52810s)
+train,00000078,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000079,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000079,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000080,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000081,time_gaps_gt_60s,15.0,kept; HMM will start a new segment (max gap 536s)
+train,00000082,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000083,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000084,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 312s)
+train,00000084,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+train,00000085,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 70s)
+train,00000085,implied_speed_gt_50mps,2.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000086,implied_speed_gt_50mps,1.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000086,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000088,time_gaps_gt_60s,2.0,kept; HMM will start a new segment (max gap 232s)
+train,00000089,time_gaps_gt_60s,4.0,kept; HMM will start a new segment (max gap 193s)
+train,00000089,reference_route_breaks,1.0,allowed as gaps during label alignment
+train,00000090,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 153064s)
+train,00000092,implied_speed_gt_50mps,4.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000093,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000095,fragmented_network_largest_wcc_pct,69.3,HMM must tolerate 'no path' transitions
+train,00000096,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000098,implied_speed_gt_50mps,5.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+train,00000099,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
+student_test,00000000,implied_speed_gt_50mps,2.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+student_test,00000000,fragmented_network_largest_wcc_pct,87.4,HMM must tolerate 'no path' transitions
+student_test,00000040,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+student_test,00000056,implied_speed_gt_50mps,3.0,kept; treated as noisy fixes (down-weighted by emission/transition)
+student_test,00000065,time_gaps_gt_60s,1.0,kept; HMM will start a new segment (max gap 210s)
+student_test,00000076,reference_route_breaks,1.0,allowed as gaps during label alignment
+student_test,00000091,self_loop_arcs,2.0,"kept; zero-length, excluded from candidates"
