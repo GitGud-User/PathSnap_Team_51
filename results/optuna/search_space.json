@@ -1,0 +1,16 @@
+{
+  "sampler": "TPE (seed 42)",
+  "objective": "maximize mean GroupKFold(3) Top-1 on train",
+  "n_trials_requested": 25,
+  "timeout_s": 420,
+  "space": {
+    "num_leaves": "int 15..255 (log)",
+    "learning_rate": "float 0.01..0.3 (log)",
+    "n_estimators": "int 100..800",
+    "min_child_samples": "int 10..500 (log)",
+    "colsample_bytree": "float 0.5..1.0",
+    "subsample": "float 0.5..1.0",
+    "reg_lambda": "float 1e-8..10 (log)",
+    "reg_alpha": "float 1e-8..10 (log)"
+  }
+}

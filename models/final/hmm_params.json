@@ -1,0 +1,9 @@
+{
+  "alpha": 1.0,
+  "sigma": 10.0,
+  "beta": 10.0,
+  "gamma": 8.0,
+  "hop2": 1.0,
+  "backward": 3.0,
+  "gap_s": 60.0
+}

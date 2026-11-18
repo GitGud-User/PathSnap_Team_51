@@ -1,0 +1,17 @@
+,mean_over_10_trips
+obs,1916.0
+pointwise_acc_clf,0.882737740919351
+pointwise_acc_hmm,0.894381889218495
+continuity_clf,0.7730762601845866
+invalid_transitions_clf,127.8
+arc_changes_clf,544.4
+continuity_hmm,0.9099065638691819
+invalid_transitions_hmm,46.0
+arc_changes_hmm,541.3
+route_precision_clf,0.8369949532396642
+route_recall_clf,0.884140425259641
+route_f1_clf,0.8564340945914483
+route_precision_hmm,0.8697831345688394
+route_recall_hmm,0.9029462828583595
+route_f1_hmm,0.8820784339222969
+hmm_ms,307.59383998811245

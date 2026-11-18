@@ -11,6 +11,35 @@ PathSnap matches noisy GPS fixes to directed road arcs and reconstructs a contin
 
 **Status:** Phase-1 submission. Every component is implemented and runs end to end on the real data. Results are first-pass and will be refined. Every number below is produced by the scripts listed, from files in `results/`.
 
+## Phase-1 results (measured, reproducible from `results/`)
+
+**Candidate generation** (50 m radius, top 8): candidate miss rate **0.72 %** on train and **0.27 %** on student-test. Of the GPS fixes, 185,226 / 208,417 (train) and 19,133 / 19,160 (student-test) are labelled; the rest are more than 50 m from the reference route.
+
+**Model comparison:** GroupKFold(5) by trip on the 80 train trips; student-test (ST) is all 10 trips. Source: `results/models/comparison.csv`.
+
+| Model | Family | CV macro-F1 | CV Top-1 | ST Top-1 | ST macro-F1 | ST log loss | ST continuity (classifier only) | Inference ms / 1k rows |
+|---|---|---|---|---|---|---|---|---|
+| Logistic regression | Linear | 0.882 | 0.833 | 0.840 | 0.888 | 0.173 | 0.734 | 0.1 |
+| KNN (k=25, distance-weighted) | Instance-based | 0.895 | 0.832 | 0.849 | 0.905 | 0.176 | 0.740 | 385 |
+| Random forest | Bagging | 0.905 | 0.844 | 0.861 | 0.915 | 0.118 | 0.761 | 2.5 |
+| HistGradientBoosting | Boosting | 0.906 | 0.847 | 0.868 | 0.916 | 0.114 | 0.767 | 2.5 |
+| **LightGBM (selected)** | Boosting | **0.907** | **0.849** | **0.871** | **0.917** | **0.112** | **0.773** | 1.9 |
+| MLP (64-32) | Neural net | 0.902 | 0.842 | 0.857 | 0.909 | 0.125 | 0.767 | 0.6 |
+
+**Bayesian optimisation** (Optuna TPE, 20 trials, 433 s, objective = GroupKFold(3) Top-1 on train): the best trial reached CV Top-1 **0.8477**, versus **0.8483** for the initial configuration, so tuning gave **no improvement**. The final model was chosen on CV only, so the initial configuration was kept. Source: `results/optuna/`.
+
+**HMM / Viterbi vs classifier only** (decoder tuned on 12 held-out train trips; mean over the 10 student-test trips). Source: `results/hmm/`.
+
+| | Classifier only | + HMM/Viterbi |
+|---|---|---|
+| Pointwise accuracy | 0.883 | **0.894** |
+| Route continuity | 0.773 | **0.910** |
+| Invalid transitions per trip | 127.8 | **46.0** |
+| Route arc F1 | 0.856 | **0.882** |
+| Decoder runtime per trip | – | 308 ms |
+
+The HMM improved 9 of 10 trips. On trip 77 it did not help (0.729 → 0.717).
+
 ## Where each deliverable lives
 | Deliverable | Code | Outputs |
 |---|---|---|

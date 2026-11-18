@@ -1,0 +1,12 @@
+{
+  "logreg": "Pipeline(steps=[('standardscaler', StandardScaler()),\n                ('logisticregression', LogisticRegression(max_iter=500))])",
+  "knn": "Pipeline(steps=[('standardscaler', StandardScaler()),\n                ('kneighborsclassifier',\n                 KNeighborsClassifier(n_jobs=-1, n_neighbors=25,\n                                      weights='distance'))])",
+  "random_forest": "RandomForestClassifier(max_depth=16, min_samples_leaf=5, n_estimators=150,\n                       n_jobs=-1, random_state=42)",
+  "hist_gb": "HistGradientBoostingClassifier(max_iter=300, random_state=42)",
+  "lightgbm": "LGBMClassifier(colsample_bytree=0.8, learning_rate=0.05, n_estimators=300,\n               random_state=42, subsample=0.8, subsample_freq=1, verbose=-1)",
+  "mlp": "Pipeline(steps=[('standardscaler', StandardScaler()),\n                ('mlpclassifier',\n                 MLPClassifier(batch_size=1024, early_stopping=True,\n                               hidden_layer_sizes=(64, 32), max_iter=60,\n                               n_iter_no_change=5, random_state=42))])",
+  "stride": 4,
+  "knn_max_rows": 150000,
+  "cv": "GroupKFold(5) by trip_id",
+  "seed": 42
+}

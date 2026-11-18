@@ -1,0 +1,16 @@
+[
+  "perp_dist_m",
+  "cand_rank",
+  "dist_minus_min",
+  "dist_ratio_min",
+  "n_candidates",
+  "heading_diff_deg",
+  "speed_mps",
+  "heading_reliable",
+  "arc_len_m",
+  "proj_t",
+  "to_out_degree",
+  "has_reverse",
+  "prev_same_arc_dist",
+  "next_same_arc_dist"
+]
