@@ -42,6 +42,7 @@ def predict_trip(trip: Trip, model, params: HMMParams) -> dict:
     if len(table):
         ch = classifier_choice(table, prob)
         clf[ch.index.get_level_values(1).to_numpy()] = ch.to_numpy()
-    hmm, ms = decode(table, prob, trip.gps_xy, trip.gps.t.to_numpy(), trip.arcs, trip.n_nodes, params)
+    hmm, ms = decode(table, prob, trip.gps_xy, trip.gps.t.to_numpy(), trip.arcs, trip.n_nodes, params, nodes_xy=trip.nodes_xy)
+
     timings["hmm_ms"] = ms
     return {"table": table, "prob": prob, "clf_arcs": clf, "hmm_arcs": hmm, "timings": timings}
