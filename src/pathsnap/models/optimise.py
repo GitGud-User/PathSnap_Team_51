@@ -114,22 +114,30 @@ def main() -> None:
          "n_trials_completed": len(study.trials), "optimisation_seconds": opt_time}, indent=2))
 
     # tuned vs untuned with identical protocol
-    rows = []
+    rows, fitted = [], {}
     n_lab = n_labelled("student_test")
     for label, fn in (("untuned", MODELS["lightgbm"][1]), ("tuned", lambda: make(study.best_params))):
         t1, f1, ll = cv_eval(fn, tr, X, y, g)
         t0 = time.perf_counter()
         m = fn().fit(X, y)
+        fitted[label] = m
         rows.append({"model": label, "cv_top1": t1, "cv_macro_f1": f1, "cv_log_loss": ll,
                      "train_time_s": time.perf_counter() - t0, **student_eval(m, st, n_lab)})
-        if label == "tuned":
-            joblib.dump(m, FINAL / "model.joblib")
     pd.DataFrame(rows).to_csv(OUT / "tuned_vs_untuned.csv", index=False)
+
+    # Final model = higher CV Top-1 (train only). Student-test is reported, never used to choose.
+    chosen = max(rows, key=lambda r: r["cv_top1"])["model"]
+    joblib.dump(fitted[chosen], FINAL / "model.joblib")
     (FINAL / "feature_list.json").write_text(json.dumps(FEATURES, indent=2))
     (FINAL / "model_card.json").write_text(json.dumps(
-        {"model": "LightGBM (Optuna-tuned)", "params": study.best_params,
+        {"model": f"LightGBM ({chosen} configuration)",
+         "params": fitted[chosen].get_params(),
+         "selection_rule": "higher GroupKFold(3) CV Top-1 on train between untuned and Optuna-best",
+         "cv_top1": {r["model"]: r["cv_top1"] for r in rows},
          "trained_on": "80 train trips, labelled fixes, every 4th fix",
-         "selection": "results/models/comparison.csv + results/optuna/"}, indent=2))
+         "evidence": ["results/models/comparison.csv", "results/optuna/tuned_vs_untuned.csv"]},
+        indent=2, default=str))
+    print(f"final model: {chosen} configuration")
 
     vals = [t.value for t in study.trials if t.value is not None]
     fig, ax = plt.subplots(figsize=(6, 3.2))
