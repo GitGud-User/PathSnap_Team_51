@@ -264,8 +264,11 @@ image(E / "04_network_structure.png", "Road network size, two-way share and conn
 image(E / "05_gps_to_reference_route.png", "Distance from GPS fixes to the reference route. Train and student-test.")
 image(E / "06_trip_locations.png", "Trip locations. Each trip carries its own city network. Train and student-test.")
 image(E / "07_sample_trajectories.png", "GPS trajectories with road network and reference route for three trips.")
-todo("Screenshot of the Folium EDA map results/eda/maps/train_00000001.html opened in a browser, with the layer "
-     "control visible. Caption it with the partition (train).")
+S = ROOT / "report" / "screenshots"
+image(S / "map_eda_train_00000001.png", "Folium map of train trip 1 near Frankfurt, raw GPS fixes and the reference "
+      "route over the road network, jump flags hidden for readability. Train partition.")
+image(S / "map_eda_train_00000090.png", "Folium map of train trip 90, raw GPS fixes following the reference route "
+      "through a small town. Train partition.")
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 3 models
@@ -489,9 +492,11 @@ note("Pulkit and Prithvish", [
     "The map module refuses to draw the reference route for evaluator trips so ground truth can never reach the UI",
     "The HMM map shows where the classifier-only route jumps to a parallel road and the HMM route stays on the true road",
 ])
-todo("Screenshot of results/hmm/map_student_test_00000000.html with GPS, reference, classifier and HMM layers and "
-     "the legend visible. Caption it with the partition (student-test).")
-todo("Optional second screenshot zoomed into a place where the classifier route jumps and the HMM route does not.")
+image(S / "map_hmm_trip00000000_overview.png", "Folium map of student-test trip 0, HMM route in purple over the "
+      "reference route in green for the whole trip. Student-test partition.")
+image(S / "map_hmm_trip00000056_zoom.png", "Folium map of student-test trip 56 at West 78th Street. The classifier-only "
+      "route in red jumps onto side roads while the HMM route in purple stays on the main road, though it still "
+      "picks the wrong parallel carriageway in the lower half. Student-test partition.")
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 7 API UI
@@ -507,13 +512,24 @@ note("Priyanka", [
     "Every request runs candidates, features, LightGBM and Viterbi live and logs each stage with its timing, so "
     "nothing is cached or hard-coded",
     "The reference route is read only inside the server-side scoring function and is never included in a response",
-    "The two laptops talk over HTTP on the same network. Uvicorn listens on 0.0.0.0 port 8000, a firewall rule "
-    "opens that port and frontend/config.js holds Laptop 1's IP",
+    "For the demo the laptops connect through a Cloudflare quick tunnel, which gives the API on Laptop 1 a "
+    "temporary https address so Laptop 2 can reach it from any network. All computation and logs stay on Laptop 1, "
+    "Cloudflare only relays the requests",
+    "The same setup also works without the tunnel on one Wi-Fi network, with uvicorn listening on 0.0.0.0 port "
+    "8000, a firewall rule for that port and Laptop 1's local IP in frontend/config.js",
+    "The log screenshot shows requests arriving from Laptop 2's own internet address, and two requests that "
+    "overlapped in time were both answered correctly",
+    "The live API returned the same Top-1 values as the offline experiments, for example 0.947 for trip 0 and "
+    "0.943 for trip 56",
     "Unknown trips return 404 and pipeline errors return 500 with a message, which the UI shows to the evaluator",
 ])
-todo("Screenshot of the web UI on Laptop 2 after running one trip, showing the map, metrics and timings.")
-todo("Screenshot of the uvicorn console on Laptop 1 (the receiving laptop) showing the predict request log lines.")
-todo("Optional screenshot of http://<laptop-1-ip>:8000/docs or of /api/health opened from Laptop 2.")
+image(S / "ui_laptop2_trip00000000.png", "Evaluator UI on Laptop 2 showing student-test trip 0 as returned by the "
+      "API on Laptop 1 through the Cloudflare tunnel.")
+image(S / "api_log_laptop1_two_laptops.png", "uvicorn console on Laptop 1, the receiving laptop, logging live predict "
+      "requests sent from the UI on Laptop 2 through the Cloudflare tunnel, with pipeline stages, timings, "
+      "server-side metrics and HTTP 200 responses.")
+image(S / "ui_trip00000000_full_panel.png", "Full UI panel for trip 0 including every server-side metric and the "
+      "pipeline timing breakdown.", width_cm=12)
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 8 conclusion
