@@ -71,6 +71,14 @@ def _evaluate(trip, out) -> dict:
     }
 
 
+@app.get("/")
+def root():
+    """Landing response for the bare server/tunnel address."""
+    return {"service": "PathSnap API", "status": "running", "partition": PARTITION,
+            "endpoints": {"health": "/api/health", "trips": "/api/trips",
+                          "predict": "POST /api/predict/{trip_id}", "interactive_docs": "/docs"}}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "partition": PARTITION, "model": type(MODEL).__name__,
