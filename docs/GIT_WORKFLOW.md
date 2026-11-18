@@ -3,7 +3,7 @@
 ## Branches
 | Branch | Owner | Folders the owner may change freely |
 |---|---|---|
-| `main` | protected – PRs only | – |
+| `main` | team rule: changes go in through PRs only (GitHub can't enforce this on a free private repo) | – |
 | `feature/data-pipeline` | Prithvish | `src/pathsnap/data/`, `candidates/`, `features/`, `results/eda/`, `results/candidates/` |
 | `feature/ml-models` | Krishna | `src/pathsnap/models/`, `results/models/`, `results/optuna/`, `configs/models*.yaml` |
 | `feature/hmm-decoder` | Pulkit | `src/pathsnap/labels/`, `src/pathsnap/hmm/`, `results/hmm/` |
@@ -17,7 +17,7 @@ Shared files (`README.md`, `requirements.txt`, `src/pathsnap/pipeline.py`, `conf
 winget install Git.Git
 ```
 ```bash
-git clone https://github.com/<owner>/pathsnap.git
+git clone https://github.com/GitGud-User/pathsnap.git
 ```
 ```bash
 cd pathsnap
