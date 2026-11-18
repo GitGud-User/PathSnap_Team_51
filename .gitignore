@@ -18,3 +18,6 @@ docs/official_materials/
 
 logs/
 
+
+# Office lock files
+~$*
