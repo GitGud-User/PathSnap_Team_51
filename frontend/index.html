@@ -11,7 +11,7 @@
   :root {
     --black:#000; --bg:#0b0b0b; --card:#161616; --card-2:#1f1f1f; --line:#2a2a2a;
     --ink:#ffffff; --ink-2:#a6a6a6; --ink-3:#6b6b6b;
-    --gps:#d9d9d9; --clf:#ffb020; --hmm:#3d8bff; --good:#05a357; --bad:#ff5a4f;
+    --gps:#1a1a1a; --clf:#e07b00; --hmm:#1a5cff; --good:#05a357; --bad:#ff5a4f;
   }
   * { box-sizing:border-box; }
   html, body { height:100%; }
@@ -74,8 +74,7 @@
 
   /* ---------- map ---------- */
   .stage { position:relative; min-height:0; }
-  #map { position:absolute; inset:0; background:#111; }
-  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.25); }
+  #map { position:absolute; inset:0; background:#e5e3df; }
   .leaflet-container { font-family:inherit; }
   .leaflet-control-zoom a { background:var(--card) !important; color:var(--ink) !important; border-color:var(--line) !important; }
   .leaflet-control-attribution { background:rgba(0,0,0,.6) !important; color:var(--ink-3) !important; }
@@ -103,7 +102,7 @@
   .chip { padding:6px 10px; border-radius:999px; background:var(--card); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
 
   .placeholder { position:absolute; inset:0; display:grid; place-items:center; z-index:400; pointer-events:none; }
-  .placeholder div { text-align:center; color:var(--ink-3); }
+  .placeholder div { text-align:center; color:var(--ink-2); background:rgba(0,0,0,.82); padding:18px 24px; border-radius:16px; }
   .placeholder b { display:block; color:var(--ink); font-size:20px; font-weight:700; margin-bottom:6px; }
 
   @media (max-width: 900px) {
@@ -147,7 +146,7 @@
     <div class="float layers" id="layerpanel">
       <label class="toggle"><span class="sw" style="background:var(--hmm);height:5px"></span><span class="t">HMM / Viterbi route</span><input type="checkbox" data-layer="hmm" checked><span class="chk"></span></label>
       <label class="toggle"><span class="sw" style="background:var(--clf)"></span><span class="t">Classifier only</span><input type="checkbox" data-layer="clf"><span class="chk"></span></label>
-      <label class="toggle"><span class="sw dot" style="background:var(--gps);border-radius:50%"></span><span class="t">Raw GPS fixes</span><input type="checkbox" data-layer="gps" checked><span class="chk"></span></label>
+      <label class="toggle"><span class="sw dot" style="background:#d9d9d9;border-radius:50%"></span><span class="t">Raw GPS fixes</span><input type="checkbox" data-layer="gps" checked><span class="chk"></span></label>
     </div>
     <div class="float tripcard" id="tripcard">
       <div class="id" id="tc-id"></div>
