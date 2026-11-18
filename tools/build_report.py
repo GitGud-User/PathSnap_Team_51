@@ -551,8 +551,9 @@ Q("Viterbi decoding.", "Viterbi keeps, for every candidate at every step, the be
 P("Viterbi recurrence used in src/pathsnap/hmm/viterbi.py", bold=True)
 P("delta_t(s') = log e_t(s') + max over s of [ delta_(t-1)(s) + log a(s, s') ]")
 P("psi_t(s') = the s that gives that maximum, used to backtrack the best route.")
-table([["alpha", "beta", "gamma", "Mean pointwise accuracy"]] +
-      [[r.alpha, r.beta, r.gamma, f"{r.mean_pointwise_acc:.4f}"] for r in grid.itertuples()],
+gcols = [c for c in ["alpha", "beta", "gamma", "cutoff"] if c in grid.columns]
+table([gcols + ["Mean pointwise accuracy"]] +
+      [[getattr(r, c) for c in gcols] + [f"{r.mean_pointwise_acc:.4f}"] for r in grid.itertuples()],
       f"Decoder parameter grid on {len(tune_trips)} held-out train trips (results/hmm/decoder_grid.csv)", font=8.5)
 table([["Metric (mean of 10 student-test trips)", "Classifier only", "Classifier + HMM"],
        ["Pointwise accuracy", f"{hs.pointwise_acc_clf:.3f}", f"{hs.pointwise_acc_hmm:.3f}"],
@@ -570,11 +571,13 @@ table([["Trip", "Fixes", "Accuracy clf", "Accuracy HMM", "Continuity clf", "Cont
       "Per trip comparison on student-test (results/hmm/clf_vs_hmm_per_trip.csv)", font=8.5)
 image(R / "hmm" / "clf_vs_hmm.png", "Classifier-only versus HMM per student-test trip.")
 image(R / "report" / "route_zoom.png", f"Close-up of student-test trip {zoom['trip']} where the HMM corrects "
-      f"{zoom['fixes_corrected_in_window']} fixes inside a {zoom['window_len']}-fix window. The HMM is not perfect "
-      f"here either, a parallel arc on the lower left is still wrong.")
+      f"{zoom['fixes_corrected_in_window']} fixes inside a {zoom['window_len']}-fix window around a junction with "
+      f"parallel carriageways.")
 worse = per[per.pointwise_acc_hmm < per.pointwise_acc_clf]
 n_better = int((per.pointwise_acc_hmm > per.pointwise_acc_clf).sum())
-Q("Did HMM decoding improve the route.", f"Yes, clearly on route quality and modestly on accuracy. Averaged over the "
+Q("Did HMM decoding improve the route.", ("Yes, clearly on both route quality and accuracy. "
+                                          if hs.pointwise_acc_hmm - hs.pointwise_acc_clf > 0.02 else
+                                          "Yes, clearly on route quality and modestly on accuracy. ") + f"Averaged over the "
   f"10 student-test trips, pointwise accuracy rose from {pct(hs.pointwise_acc_clf)} to {pct(hs.pointwise_acc_hmm)}, "
   f"route continuity rose from {pct(hs.continuity_clf)} to {pct(hs.continuity_hmm)} and the route arc F1 rose from "
   f"{pct(hs.route_f1_clf)} to {pct(hs.route_f1_hmm)}. The number of invalid transitions per trip, meaning jumps "
@@ -584,10 +587,16 @@ Q("Where it did not help.", (f"The HMM improved {n_better} of the 10 trips. "
                              + (f"On trip {', '.join(worse.trip)} accuracy went down slightly. When the classifier is "
                                 "wrong for a long stretch, the HMM follows a consistent but wrong road, so it is good "
                                 "at fixing short flips but cannot rescue long errors. " if len(worse) else "")
-                             + "The close-up figure also shows a remaining weakness. Two parallel carriageways a few "
-                               "metres apart look almost the same to both the classifier and the decoder, so the "
-                               "HMM can still settle on the wrong one."))
-Q("How the parameters were chosen.", f"We tuned alpha, beta and gamma with a small grid search on {len(tune_trips)} "
+                             + ("Using the real driving distance along the road network was what made the biggest "
+                                "difference. In the close-up the classifier jumps to the parallel carriageway and to "
+                                "side roads, and because reaching those roads would mean a long detour by road, the "
+                                "HMM stays on the correct carriageway. Errors still remain, mostly where the "
+                                "classifier is wrong for many fixes in a row." if ROAD else
+                                "The close-up figure also shows a remaining weakness. Two parallel carriageways a "
+                                "few metres apart look almost the same to both the classifier and the decoder, so "
+                                "the HMM can still settle on the wrong one.")))
+Q("How the parameters were chosen.", f"We tuned {', '.join(gcols[:-1])} and {gcols[-1]} with a small grid search on "
+  f"{len(tune_trips)} "
   "train trips that were held out from the classifier used for tuning, scoring each setting by pointwise accuracy. "
   "Student-test was only used to report the final comparison and the evaluator partition was never used.")
 doc.add_page_break()
@@ -603,13 +612,14 @@ W("All interactive maps are produced by src/pathsnap/viz/folium_maps.py and save
   "The reference route layer is only allowed for the train and student-test partitions. The map function refuses to "
   "draw it for evaluator trips, which is one of the ways we make sure ground truth can never reach the UI.",
   "The overview map of trip 0 shows the HMM route following the reference along the whole drive. The close-up of "
-  "trip 56 is more interesting. Around the West 78th Street junction the classifier-only route jumps onto three "
-  "side roads and slip roads, while the HMM route stays on the main road.")
+  "trip 56 is more interesting. Around the West 78th Street junction the classifier-only route jumps onto the "
+  "parallel carriageway and onto side roads and slip roads, while the HMM route stays on the same carriageway as "
+  "the reference route.")
 image(S / "map_hmm_trip00000000_overview.png", "Folium map of student-test trip 0, HMM route in purple over the "
       "reference route in green for the whole trip. Student-test partition.")
-image(S / "map_hmm_trip00000056_zoom.png", "Folium map of student-test trip 56 at West 78th Street. The classifier-only "
-      "route in red jumps onto side roads while the HMM route in purple stays on the main road, though it still "
-      "picks the wrong parallel carriageway in the lower half. Student-test partition.")
+image(S / "map_hmm_zoom.png", f"Folium map of student-test trip {zoom['trip']} at the West 78th Street junction. The "
+      "classifier-only route in red jumps onto the parallel carriageway and side roads while the HMM route in purple "
+      "follows the reference route in green. Student-test partition.")
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 7 API UI
@@ -634,16 +644,22 @@ W("Laptop 1 runs the FastAPI backend with uvicorn. It holds the trained model, t
   "logs stay on Laptop 1 and Cloudflare only relays the requests. The same system also works without the tunnel when "
   "both laptops share a Wi-Fi network, with uvicorn listening on all interfaces, a firewall rule for port 8000 and "
   "the local address of Laptop 1 in the UI configuration.",
-  "The log screenshot below was taken during a real two-laptop run. The requests arrive from the internet address "
-  "of Laptop 2, two requests that overlapped in time were both answered correctly, and the live results match the "
-  "offline experiments exactly, for example a Top-1 of 0.947 for trip 0 and 0.943 for trip 56.")
+  "The first two screenshots below come from our two-laptop rehearsal. The requests arrive from the internet "
+  "address of Laptop 2, and two requests that overlapped in time were both answered correctly. That rehearsal ran "
+  "the earlier version of the HMM, before we added road network distance, so its numbers are the older ones.",
+  f"The last two screenshots were taken after the final model and decoder were in place. The live API again returns "
+  f"exactly the same values as our offline experiments, a Top-1 of "
+  f"{per.set_index('trip').loc['00000000', 'pointwise_acc_hmm']:.3f} for trip 0 and "
+  f"{per.set_index('trip').loc['00000056', 'pointwise_acc_hmm']:.3f} for trip 56.")
 image(S / "ui_laptop2_trip00000000.png", "Evaluator UI on Laptop 2 showing student-test trip 0 as returned by the "
-      "API on Laptop 1 through the Cloudflare tunnel.")
+      "API on Laptop 1 through the Cloudflare tunnel, recorded during the two-laptop rehearsal with the earlier HMM.")
 image(S / "api_log_laptop1_two_laptops.png", "uvicorn console on Laptop 1, the receiving laptop, logging live predict "
       "requests sent from the UI on Laptop 2 through the Cloudflare tunnel, with pipeline stages, timings, "
-      "server-side metrics and HTTP 200 responses.")
-image(S / "ui_trip00000000_full_panel.png", "Full UI panel for trip 0 including every server-side metric and the "
-      "pipeline timing breakdown.", width_cm=12)
+      "server-side metrics and HTTP 200 responses. Recorded during the rehearsal with the earlier HMM.")
+image(S / "api_log_laptop1_cmd.png", "uvicorn console on Laptop 1 with the final model and road-distance HMM, "
+      "logging three predict requests from the UI.")
+image(S / "ui_trip00000000_full_panel.png", "UI with the final model and decoder for trip 0, including every "
+      "server-side metric and the pipeline timing breakdown.", width_cm=12)
 doc.add_page_break()
 
 # ------------------------------------------------------------------ 8 conclusion
@@ -657,9 +673,11 @@ W("The two-layer design did what we hoped. The classifier makes good local choic
   "inherits some of that uncertainty. "
   + ("Hyperparameter tuning did not improve LightGBM, which suggests that our features and labels limit performance "
      "more than the model settings do. " if not tuned_better else "")
-  + "We trained on every fourth fix to keep training time practical, which leaves part of the data unused. The "
-    "HMM still struggles with parallel carriageways a few metres apart and with long stretches where the classifier "
-    "is consistently wrong.",
+  + "We trained on every fourth fix to keep training time practical, which leaves part of the data unused. "
+  + (f"The HMM still makes mistakes where the classifier is wrong for many fixes in a row, and searching the road "
+     f"network makes decoding slower, at about {hs.hmm_ms:.0f} ms per trip." if ROAD else
+     "The HMM still struggles with parallel carriageways a few metres apart and with long stretches where the "
+     "classifier is consistently wrong."),
   "With more time we would "
   + ("" if ROAD else "replace the straight-line distance in the HMM transition with true road network distance, ")
   + "calibrate the classifier probabilities, use heading and lane information to separate parallel carriageways, "

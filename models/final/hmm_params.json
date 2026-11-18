@@ -2,8 +2,9 @@
   "alpha": 1.0,
   "sigma": 10.0,
   "beta": 10.0,
-  "gamma": 8.0,
+  "gamma": 4.0,
   "hop2": 1.0,
   "backward": 3.0,
-  "gap_s": 60.0
+  "gap_s": 60.0,
+  "cutoff": 300.0
 }

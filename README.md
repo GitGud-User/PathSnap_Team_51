@@ -88,16 +88,17 @@ All numbers come from files in `results/` and can be regenerated with [Section 9
 
 **Bayesian optimisation** used Optuna TPE: 20 trials, 433 s. The best trial reached CV Top-1 0.8477, versus 0.8483 for the initial configuration, so **tuning gave no gain**. The initial configuration was kept, chosen on CV only (`results/optuna/`).
 
-**HMM / Viterbi vs classifier only** (mean over the 10 student-test trips; `results/hmm/`):
+**HMM / Viterbi vs classifier only** (mean over the 10 student-test trips; `results/hmm/`). The transition model uses **road-network distance** (Dijkstra over the directed arc graph, capped at the GPS step + 300 m). Parameters were tuned on 12 held-out train trips:
 
 | Metric | Classifier only | + HMM / Viterbi |
 |---|---|---|
-| Pointwise accuracy | 0.883 | **0.894** |
-| Route continuity | 0.773 | **0.910** |
-| Invalid transitions per trip | 127.8 | **46.0** |
-| Route arc F1 | 0.856 | **0.882** |
+| Pointwise accuracy | 0.883 | **0.928** |
+| Route continuity | 0.773 | **0.922** |
+| Invalid transitions per trip | 127.8 | **32.0** |
+| Route arc F1 | 0.856 | **0.918** |
+| Decoder time per trip | – | 464 ms |
 
-The HMM improved 9 of the 10 trips. It did not help on trip 77 (0.729 → 0.717).
+The HMM improved all 10 trips. The earlier straight-line-distance version reached 0.894 accuracy and made trip 77 slightly worse; with road distance, trip 77 goes from 0.729 to 0.789.
 
 ---
 

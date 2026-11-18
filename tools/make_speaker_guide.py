@@ -35,6 +35,11 @@ lgb = comp.loc["lightgbm"]
 worse = per_trip[per_trip.pointwise_acc_hmm < per_trip.pointwise_acc_clf]
 helped = int((per_trip.pointwise_acc_hmm > per_trip.pointwise_acc_clf).sum())
 knn_x = comp.loc["knn", "infer_ms_per_1k_rows"] / lgb["infer_ms_per_1k_rows"]
+hp_final = json.loads((ROOT / "models" / "final" / "hmm_params.json").read_text())
+ROAD = "cutoff" in hp_final          # HMM transition uses road-network (Dijkstra) distance
+NEG_HMM = ((f", the HMM made {len(worse)} of 10 trips slightly worse" if len(worse) else "")
+           + ("" if ROAD else ", the HMM uses straight-line distance for now")
+           + ", and parallel carriageways still confuse it")
 
 
 def pct(x, d=1):
@@ -143,7 +148,7 @@ S += [p("Rules in the room", H2)] + bullets([
     "<b>Let the panel pick the trip</b> in the UI – it proves nothing is hard-coded. Show the uvicorn log on Laptop 1.",
     "<b>Owner answers first</b>, one teammate may add one sentence. Never talk over each other.",
     "<b>Never claim something we did not run.</b> Say \"we haven't tested that; we'd expect X because Y.\"",
-    "<b>Say the negatives yourself</b>: Optuna gave no gain, HMM hurt one trip, HMM uses straight-line distance for now.",
+    f"<b>Say the negatives yourself</b>: Optuna gave no gain{NEG_HMM}.",
     "AI assistance was used for scaffolding and is disclosed in the README – each of us has read and can explain our module."])
 S.append(PageBreak())
 
@@ -211,8 +216,11 @@ S += [p("What to say", H3), p(
     "programming</b>: every fix maps to a route arc, the route index can only move forward in time, and the cost is "
     "distance. Fixes more than 50 m from the route are marked <i>unmatched</i> and left out of accuracy. In the HMM "
     "the <b>hidden states</b> are each fix's candidate arcs. <b>Emission</b> is the classifier's log-probability. "
-    "<b>Transition</b> penalises the difference between how far the GPS moved and how far the matched position moved, "
-    "plus a connectivity term: same arc or the next connected arc costs nothing, one arc in between a small penalty, "
+    "<b>Transition</b> penalises the difference between how far the GPS moved and "
+    + ("how far the car would have to <b>drive along the road network</b> between the two matched points, found with "
+       "<b>Dijkstra</b> shortest paths, capped at the GPS step plus a cutoff, "
+       if ROAD else "how far the matched position moved, ")
+    + "plus a connectivity term: same arc or the next connected arc costs nothing, one arc in between a small penalty, "
     "not connected a large penalty. <b>Viterbi</b> keeps, for every candidate, the best score of any path ending "
     "there, then backtracks. A gap over 60 s or a fix with no candidates starts a new segment. On student-test it "
     f"raised <b>route continuity from {pct(hmm.continuity_clf)} to {pct(hmm.continuity_hmm)}</b>, cut invalid "
@@ -226,7 +234,15 @@ S += [p("The recurrence (write it on the board if asked)", H3),
         "Cost: O(T x K x K) for T fixes and K &lt;= 8 candidates.", BODY)]
 S += [p("Likely questions", H3)] + qa([
     ("Why soft penalties instead of forbidding unconnected transitions?", "If the true path is temporarily missing (bad candidates, gaps), a hard ban would trap the decoder; a soft penalty lets it recover."),
-    ("What is the current weakness?", "Transition uses straight-line distance between matched points as a proxy for road distance. Next step: Dijkstra network distance."),
+    ("What is the current weakness?",
+     "Parallel carriageways a few metres apart look almost identical, and long stretches where the classifier is "
+     "consistently wrong cannot be rescued. Road distance also makes decoding slower (Dijkstra per step, cached)."
+     if ROAD else "Transition uses straight-line distance between matched points as a proxy for road distance. Next step: Dijkstra network distance."),
+    ("How does road distance work?" if ROAD else "Why not road distance?",
+     f"For each pair of candidates we run Dijkstra on the directed, length-weighted arc graph from the end of the first "
+     f"arc to the start of the second, add the remaining part of each arc, and cap the search at the GPS step plus "
+     f"{hp_final.get('cutoff', 0):.0f} m. Results are cached per node pair. No path within the cap gets the cap as a "
+     f"soft penalty, never minus infinity." if ROAD else "It was the planned next step; it costs a shortest-path search per candidate pair."),
     ("How were decoder parameters chosen?", "Small grid search on 12 held-out train trips; the classifier used during tuning was trained without those trips. Never on evaluator data."),
     ("Why did the HMM not help on some trips?", "Where the classifier is already wrong for long stretches, the HMM follows a consistent but wrong road; it fixes short flips, not long errors.")])
 S += [Spacer(1, 4), fig(R / "hmm" / "clf_vs_hmm.png", 170 * mm)]
@@ -267,12 +283,12 @@ S += [p("Questions any of us may get", H1), Spacer(1, 4)] + qa([
     ("What is the evaluation protocol?", "80 train trips for fitting and GroupKFold CV; 10 student-test trips only for comparing models; 10 evaluator trips untouched until the demo."),
     ("What is the candidate miss rate and why does it matter?", f"Share of labelled fixes whose true arc is not among the candidates ({pct(miss['student_test'], 2)} on student-test). If the right arc is not a candidate, no model or HMM can recover it."),
     ("What is route continuity?", "Of all places where the matched arc changes, the share where the next arc starts where the previous one ended (to-node = from-node)."),
-    ("What would you improve next?", "Road-network (Dijkstra) distance in the HMM transition; feature-importance based pruning; calibrating probabilities; better handling of parked/stationary GPS clusters."),
+    ("What would you improve next?", ("" if ROAD else "Road-network (Dijkstra) distance in the HMM transition; ") + "feature-importance based pruning; calibrating probabilities; better handling of parked/stationary GPS clusters."),
     ("Are the reference routes perfect?", "No – the brief warns they are not guaranteed ground truth, and we found routes that do not cover off-route clusters (trips 33, 54) and 14 breaks. We exclude unmatched fixes and report how many.")])
 S += [p("Honest limitations (say these before they are asked)", H2)] + bullets([
     f"Optuna did not improve LightGBM (CV Top-1 {tvu.loc['tuned', 'cv_top1']:.4f} tuned vs {tvu.loc['untuned', 'cv_top1']:.4f} initial).",
-    "HMM transition uses straight-line distance, not road distance (phase-2 work).",
-    f"HMM did not help every trip ({10 - helped} of 10 got slightly worse or equal).",
+    *([] if ROAD else ["HMM transition uses straight-line distance, not road distance (phase-2 work)."]),
+    *([f"HMM did not help every trip ({10 - helped} of 10 got slightly worse or equal)."] if helped < 10 else ["HMM still confuses parallel carriageways a few metres apart."]),
     "Training used every 4th fix to keep runtime laptop-friendly (consecutive 1 Hz fixes are near-duplicates).",
     "Labels are derived from the reference route by our alignment, so they inherit its imperfections."])
 
