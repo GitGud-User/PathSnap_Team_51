@@ -1,61 +1,161 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PathSnap Evaluator</title>
+<title>PathSnap Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  :root { --bg:#f9f9f7; --panel:#fcfcfb; --ink:#0b0b0b; --muted:#52514e; --line:#e1e0d9;
-          --accent:#2a78d6; --gps:#2a78d6; --clf:#eb6834; --hmm:#6250d6; --err:#d03b3b; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-          --bg:#0d0d0d; --panel:#1a1a19; --ink:#f0efec; --muted:#c3c2b7; --line:#2c2c2a;
-          --accent:#3987e5; --gps:#3987e5; --clf:#d95926; --hmm:#9085e9; } }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
-  header h1 { margin:0; font-size:18px; } header span { color:var(--muted); }
-  main { display:grid; grid-template-columns: 320px 1fr; height: calc(100vh - 56px); }
-  aside { padding:16px; overflow:auto; border-right:1px solid var(--line); background:var(--panel); }
-  #map { height:100%; }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 8px; }
-  .trips { display:grid; grid-template-columns: 1fr 1fr; gap:6px; }
-  .trips button { padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg);
-                  color:var(--ink); cursor:pointer; font: 13px ui-monospace,monospace; }
-  .trips button:hover { border-color:var(--accent); }
-  .trips button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .status { margin-top:12px; min-height:20px; color:var(--muted); }
-  .status.err { color:var(--err); }
-  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--accent);
-             border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  table { width:100%; border-collapse:collapse; font-variant-numeric: tabular-nums; }
-  td { padding:4px 0; border-bottom:1px solid var(--line); } td:last-child { text-align:right; }
-  .legend div { display:flex; align-items:center; gap:8px; margin:4px 0; }
-  .sw { width:18px; height:4px; border-radius:2px; } .dot { width:8px; height:8px; border-radius:50%; }
-  @media (max-width: 760px) { main { grid-template-columns: 1fr; height:auto; } #map { height:60vh; } }
+  :root {
+    --black:#000; --bg:#0b0b0b; --card:#161616; --card-2:#1f1f1f; --line:#2a2a2a;
+    --ink:#ffffff; --ink-2:#a6a6a6; --ink-3:#6b6b6b;
+    --gps:#d9d9d9; --clf:#ffb020; --hmm:#3d8bff; --good:#05a357; --bad:#ff5a4f;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--black); color:var(--ink);
+         font:14px/1.4 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing:antialiased; }
+  .app { display:grid; grid-template-columns: 400px 1fr; height:100vh; }
+
+  /* ---------- sidebar ---------- */
+  aside { background:var(--black); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  .brand { padding:22px 24px 18px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line); }
+  .logo { width:34px; height:34px; border-radius:10px; background:var(--ink); color:var(--black);
+          display:grid; place-items:center; font-weight:800; font-size:16px; letter-spacing:-.5px; }
+  .brand h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:-.4px; }
+  .brand p { margin:0; color:var(--ink-3); font-size:12px; }
+  .pill { margin-left:auto; display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px;
+          background:var(--card); color:var(--ink-2); font-size:12px; font-weight:500; }
+  .pill i { width:7px; height:7px; border-radius:50%; background:var(--ink-3); }
+  .pill.on i { background:var(--good); box-shadow:0 0 0 3px rgba(5,163,87,.25); }
+  .pill.off i { background:var(--bad); }
+
+  .scroll { overflow:auto; padding:20px 24px 28px; flex:1; }
+  .label { color:var(--ink-3); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin:0 0 10px; }
+  section + section { margin-top:26px; }
+
+  .trips { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
+  .trip { all:unset; cursor:pointer; padding:12px 14px; border-radius:12px; background:var(--card);
+          display:flex; align-items:center; justify-content:space-between; transition:background .15s, transform .15s; }
+  .trip:hover { background:var(--card-2); }
+  .trip:active { transform:scale(.98); }
+  .trip b { font-weight:600; font-variant-numeric:tabular-nums; }
+  .trip span { color:var(--ink-3); font-size:12px; }
+  .trip.active { background:var(--ink); color:var(--black); }
+  .trip.active span { color:#555; }
+  .trip:focus-visible { outline:2px solid var(--hmm); outline-offset:2px; }
+
+  .status { margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--card); color:var(--ink-2);
+            display:flex; gap:10px; align-items:center; font-size:13px; }
+  .status.err { background:rgba(255,90,79,.12); color:#ffb4ae; }
+  .spinner { width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--ink); border-radius:50%;
+             animation:spin .7s linear infinite; flex:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .hero { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .kpi { background:var(--card); border-radius:14px; padding:14px 16px; }
+  .kpi .k { color:var(--ink-2); font-size:12px; font-weight:500; }
+  .kpi .v { font-size:28px; font-weight:800; letter-spacing:-.8px; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .kpi .d { font-size:12px; margin-top:2px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .kpi .d.up { color:var(--good); } .kpi .d.down { color:var(--bad); }
+  .kpi.wide { grid-column: span 2; display:flex; justify-content:space-between; align-items:flex-end; }
+
+  .rows { background:var(--card); border-radius:14px; padding:4px 16px; }
+  .row { display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  .row:last-child { border-bottom:0; }
+  .row span:first-child { color:var(--ink-2); }
+  .row span:last-child { font-weight:600; }
+  .empty { color:var(--ink-3); padding:14px 0; }
+
+  .bar { height:6px; border-radius:99px; background:var(--card-2); overflow:hidden; display:flex; margin:10px 0 6px; }
+  .bar i { display:block; height:100%; }
+
+  /* ---------- map ---------- */
+  .stage { position:relative; min-height:0; }
+  #map { position:absolute; inset:0; background:#111; }
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.25); }
+  .leaflet-container { font-family:inherit; }
+  .leaflet-control-zoom a { background:var(--card) !important; color:var(--ink) !important; border-color:var(--line) !important; }
+  .leaflet-control-attribution { background:rgba(0,0,0,.6) !important; color:var(--ink-3) !important; }
+  .leaflet-control-attribution a { color:var(--ink-2) !important; }
+
+  .float { position:absolute; z-index:500; background:rgba(0,0,0,.82); backdrop-filter:blur(10px);
+           border:1px solid var(--line); border-radius:16px; color:var(--ink); }
+  .layers { top:16px; right:16px; padding:8px; display:flex; flex-direction:column; gap:2px; min-width:230px; }
+  .toggle { display:flex; align-items:center; gap:12px; padding:9px 10px; border-radius:10px; cursor:pointer; user-select:none; }
+  .toggle:hover { background:var(--card); }
+  .toggle input { display:none; }
+  .sw { width:22px; height:4px; border-radius:99px; flex:none; }
+  .sw.dot { width:10px; height:10px; margin:0 6px; }
+  .toggle .t { flex:1; font-weight:500; }
+  .chk { width:34px; height:20px; border-radius:99px; background:var(--card-2); position:relative; transition:background .15s; flex:none; }
+  .chk::after { content:""; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:var(--ink-3); transition:all .15s; }
+  .toggle input:checked + .chk { background:var(--ink); }
+  .toggle input:checked + .chk::after { left:17px; background:var(--black); }
+
+  .tripcard { left:16px; bottom:16px; padding:16px 18px; min-width:280px; display:none; }
+  .tripcard.show { display:block; }
+  .tripcard .id { font-size:22px; font-weight:800; letter-spacing:-.5px; }
+  .tripcard .meta { color:var(--ink-2); font-size:13px; margin-top:2px; }
+  .chips { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+  .chip { padding:6px 10px; border-radius:999px; background:var(--card); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
+
+  .placeholder { position:absolute; inset:0; display:grid; place-items:center; z-index:400; pointer-events:none; }
+  .placeholder div { text-align:center; color:var(--ink-3); }
+  .placeholder b { display:block; color:var(--ink); font-size:20px; font-weight:700; margin-bottom:6px; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; height:auto; }
+    .stage { height:70vh; }
+    .layers { min-width:0; }
+  }
 </style>
 </head>
 <body>
-<header><h1>PathSnap</h1><span>map-matching &amp; route reconstruction · evaluator console</span></header>
-<main>
+<div class="app">
   <aside>
-    <h2>Evaluation trips <span id="partition"></span></h2>
-    <div class="trips" id="trips"></div>
-    <div class="status" id="status">Connecting to API…</div>
-    <h2>Legend</h2>
-    <div class="legend">
-      <div><span class="dot" style="background:var(--gps)"></span>Raw GPS fixes</div>
-      <div><span class="sw" style="background:var(--clf)"></span>Classifier-only route</div>
-      <div><span class="sw" style="background:var(--hmm)"></span>HMM / Viterbi route (final)</div>
+    <div class="brand">
+      <div class="logo">PS</div>
+      <div><h1>PathSnap</h1><p>Map-matching console</p></div>
+      <div class="pill" id="conn"><i></i><span>Connecting</span></div>
     </div>
-    <h2>Metrics (computed server-side)</h2>
-    <table id="metrics"><tr><td colspan="2" style="color:var(--muted)">Select a trip.</td></tr></table>
-    <h2>Timings</h2>
-    <table id="timings"></table>
+    <div class="scroll">
+      <section>
+        <p class="label">Choose a trip <span id="partition"></span></p>
+        <div class="trips" id="trips"></div>
+        <div class="status" id="status"><span class="spinner"></span><span>Connecting to API…</span></div>
+      </section>
+      <section>
+        <p class="label">Route quality</p>
+        <div class="hero" id="hero"><div class="kpi wide"><div class="empty">Select a trip to run it through the live pipeline.</div></div></div>
+      </section>
+      <section>
+        <p class="label">All metrics · computed server-side</p>
+        <div class="rows" id="metrics"><div class="empty">No trip yet.</div></div>
+      </section>
+      <section>
+        <p class="label">Pipeline timing</p>
+        <div class="rows" id="timings"><div class="empty">No trip yet.</div></div>
+      </section>
+    </div>
   </aside>
-  <div id="map"></div>
-</main>
+  <div class="stage">
+    <div id="map"></div>
+    <div class="placeholder" id="placeholder"><div><b>Pick a trip</b>The reconstructed route will appear here.</div></div>
+    <div class="float layers" id="layerpanel">
+      <label class="toggle"><span class="sw" style="background:var(--hmm);height:5px"></span><span class="t">HMM / Viterbi route</span><input type="checkbox" data-layer="hmm" checked><span class="chk"></span></label>
+      <label class="toggle"><span class="sw" style="background:var(--clf)"></span><span class="t">Classifier only</span><input type="checkbox" data-layer="clf"><span class="chk"></span></label>
+      <label class="toggle"><span class="sw dot" style="background:var(--gps);border-radius:50%"></span><span class="t">Raw GPS fixes</span><input type="checkbox" data-layer="gps" checked><span class="chk"></span></label>
+    </div>
+    <div class="float tripcard" id="tripcard">
+      <div class="id" id="tc-id"></div>
+      <div class="meta" id="tc-meta"></div>
+      <div class="chips" id="tc-chips"></div>
+    </div>
+  </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
