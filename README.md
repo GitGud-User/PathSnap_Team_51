@@ -123,8 +123,8 @@ pathsnap/
 ├── models/final/               Final model, feature list, HMM parameters
 ├── results/                    Every CSV / PNG / HTML the report uses
 ├── tests/                      pytest suite
-├── docs/                       Audit, roadmap, deployment guide, speaker guide
-├── tools/                      Helper scripts (speaker-guide PDF, Stage-1 audit)
+├── docs/                       Deployment guide and Git workflow
+├── tools/                      Helper scripts (report and figure generation, screenshots, Stage-1 audit)
 ├── data/                       Dataset goes here (NOT committed, see Section 6)
 ├── requirements.txt
 └── pyproject.toml
@@ -320,7 +320,6 @@ Run these from the project root with the virtual environment active, **in this o
 | 6 | `python -m pathsnap.models.train_all` | Trains and compares the 6 models (GroupKFold 5) | `results/models/comparison.csv`, `cv_folds.csv`, plots | ~5–8 min |
 | 7 | `python -m pathsnap.models.optimise --trials 20 --timeout 420` | Optuna TPE on LightGBM; saves the final model (chosen on CV) | `results/optuna/*`, `models/final/*` | ~8 min |
 | 8 | `python -m pathsnap.hmm.compare` | Tunes the HMM on held-out train trips; classifier vs HMM on student-test | `results/hmm/*`, `models/final/hmm_params.json` | ~2 min |
-| 9 | `python tools/make_speaker_guide.py` | Rebuilds the panel speaker guide from the results | `docs/PathSnap_Speaker_Guide.pdf` | ~5 s |
 
 Run the tests again at any time:
 ```bash
@@ -390,6 +389,6 @@ Errors: `404` for an unknown trip ID, `500` if the pipeline fails (with a messag
 | **Pulkit** | Label alignment, HMM and Viterbi decoding |
 | **Priyanka** | Shared metrics, FastAPI backend, web UI, deployment |
 
-Further documentation: [roadmap](docs/PATHSNAP_ROADMAP.md) · [dataset audit](docs/STAGE1_DATASET_AUDIT.md) · [Stage 2 guide](docs/STAGE2_GUIDE.md) · [deployment](docs/DEPLOY.md) · [Git workflow](docs/GIT_WORKFLOW.md) · [speaker guide (PDF)](docs/PathSnap_Speaker_Guide.pdf)
+Further documentation: [technical report (PDF)](report/PathSnap_Technical_Report.pdf) · [deployment](docs/DEPLOY.md) · [Git workflow](docs/GIT_WORKFLOW.md)
 
 *AI assistance was used for parts of the scaffolding and is disclosed here, as the event's AI-use policy requires. Every experiment was run by the team, and every reported number is reproducible from this repository.*

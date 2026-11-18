@@ -6,7 +6,8 @@ own words before exporting the final PDF. Yellow boxes are screenshots the team 
 
 Run (after tools/report_figures.py):
     python tools/build_report.py
-Out: report/PathSnap_Technical_Report_DRAFT.docx
+Out: report/PathSnap_Technical_Report.docx (git-ignored). Export it to PDF in Word as
+     report/PathSnap_Technical_Report.pdf, which is the file kept in the repository.
 """
 from __future__ import annotations
 

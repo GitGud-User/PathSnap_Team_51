@@ -21,3 +21,6 @@ logs/
 
 # Office lock files
 ~$*
+
+# Generated report source; only the exported PDF is kept
+report/*.docx
