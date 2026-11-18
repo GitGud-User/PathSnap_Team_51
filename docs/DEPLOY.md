@@ -2,15 +2,15 @@
 
 | Laptop | Runs | Shows the panel |
 |---|---|---|
-| **1 – API** | `uvicorn backend.app:app` (candidates → features → LightGBM → HMM/Viterbi → server-side scoring) | the uvicorn / `logs/api.log` console, where every request is logged with stage timings |
-| **2 – UI** | static `frontend/` (Leaflet map) served with `python -m http.server` | trip buttons, map layers, metrics |
+| **1 – API** | `uvicorn backend.app:app` (candidates → features → LightGBM → HMM/Viterbi → server-side scoring, **and the `frontend/` UI at `/ui/`**) | the uvicorn / `logs/api.log` console, where every request is logged with stage timings |
+| **2 – UI** | a browser. Either the page served by Laptop 1 (`/ui/`, or the tunnel link), or a static `frontend/` copy served with `python -m http.server` and pointed at Laptop 1 in `config.js` | trip buttons, map layers, metrics |
 
-There are two ways to connect the laptops. Both keep the same roles: the API and its logs on Laptop 1, the UI on Laptop 2.
+There are two ways to connect the laptops. Both keep the models, data and logs on Laptop 1.
 
 | Option | Use when | Needs |
 |---|---|---|
 | **A. Same Wi-Fi / hotspot** | Both laptops can reach each other on the local network | Same network, firewall rule, Laptop 1's local IP |
-| **B. Cloudflare Tunnel** (what we demo with) | Venue Wi-Fi blocks laptop-to-laptop traffic, or the laptops are on different networks | Internet on both laptops, `cloudflared` on Laptop 1 |
+| **B. Cloudflare Tunnel** (what we demo with) | Venue Wi-Fi blocks laptop-to-laptop traffic, or the laptops are on different networks | Internet on Laptop 1, `cloudflared` on Laptop 1, the link shared with Laptop 2 |
 
 ---
 
@@ -51,52 +51,45 @@ Copy the dataset into `data/` (see `data/README.md`). On evaluation day, put the
    ```
 
 **Laptop 2**
-1. Check you can reach it: open `http://192.168.43.10:8000/api/health`. It must return JSON.
-2. In `frontend/config.js` set `window.PATHSNAP_API = "http://192.168.43.10:8000";`.
-3. Start the UI and open `http://127.0.0.1:5500`:
-   ```bash
-   python -m http.server 5500 --directory frontend
-   ```
+1. Open `http://192.168.43.10:8000/ui/` in a browser. That is Laptop 1 serving the UI and the API on one origin, so nothing else is needed. `/api/health` must return `"status": "ok"`.
+2. Optional, only if Laptop 2 should serve its own copy of the UI: in `frontend/config.js` set `window.PATHSNAP_API = "http://192.168.43.10:8000";`, then run `python -m http.server 5500 --directory frontend` and open `http://127.0.0.1:5500`.
 
 ---
 
 ## Option B – Cloudflare Tunnel
 
-A *quick tunnel* gives the API on Laptop 1 a temporary public HTTPS address, `https://<random>.trycloudflare.com`, so Laptop 2 can reach it from any network. All computation and all logs stay on Laptop 1. Cloudflare only relays the requests.
+A *quick tunnel* gives the app a temporary public HTTPS address, `https://<random>.trycloudflare.com`. Because the API also serves the UI (`/ui/`), that **single link** is the whole demo: anyone who opens it gets the map, and the map calls the API on the same origin. All computation, data and logs stay on Laptop 1; Cloudflare only relays the requests.
 
 **Laptop 1**
 1. Install cloudflared, once:
    ```bash
-   winget install --id Cloudflare.cloudflared -e
+   brew install cloudflared                            # macOS
+   winget install --id Cloudflare.cloudflared -e       # Windows
+   sudo apt install cloudflared                        # Debian/Ubuntu (or see Cloudflare's downloads page)
    ```
-   Close and reopen the terminal afterwards. On Linux, install it from Cloudflare's downloads page.
-2. **Terminal 1: start the API.** Local-only is enough, because the tunnel connects locally:
+   On Windows, close and reopen the terminal afterwards.
+2. **Terminal 1: start the app.** Local-only is enough, because the tunnel connects locally:
    ```bash
-   .venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
+   .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
    ```
-3. **Terminal 2: start the tunnel.**
+3. **Terminal 2: start the tunnel** — either the helper script, which checks that the API is up first, or cloudflared directly:
    ```bash
+   ./tools/tunnel.sh
    cloudflared tunnel --url http://127.0.0.1:8000
    ```
    Near the top of its output, copy the URL from the box *"Your quick Tunnel has been created! Visit it at …"*. A later `ERR Failed to initialize DNS local resolver` line is harmless; the line that matters is `Registered tunnel connection`.
 
-**Laptop 2**
-1. Check it: open `https://<random>.trycloudflare.com/api/health`. It must return `"status": "ok"`. The first request can take 10–30 s.
-2. In `frontend/config.js` set the tunnel URL, with no trailing slash:
-   ```js
-   window.PATHSNAP_API = "https://<random>.trycloudflare.com";
-   ```
-3. Start the UI and open `http://127.0.0.1:5500`:
-   ```bash
-   python -m http.server 5500 --directory frontend
-   ```
+**Any device with the link**
+1. Open `https://<random>.trycloudflare.com`. It redirects to `/ui/` and the status pill turns green once `/api/health` answers. The first request can take 10–30 s.
+2. `https://<random>.trycloudflare.com/api/health`, `/api` and `/docs` work too.
+
+No `frontend/config.js` edit is needed: `window.PATHSNAP_API = ""` means "same origin". Only the separate-static-server setup (Option A, or `python -m http.server 5500`) needs the absolute URL.
 
 **Know before demoing**
-- Keep the cloudflared terminal open the whole time. Every restart gives a **new URL**, so `config.js` must be updated each time.
-- While the tunnel runs, the API is reachable by anyone with the URL. It only returns predictions and metrics; reference routes never leave Laptop 1. Stop it with `Ctrl + C` afterwards.
+- Keep the cloudflared terminal open the whole time. Every restart gives a **new URL**, so re-share the link after a restart.
+- While the tunnel runs, the app is reachable by anyone with the URL. It only returns predictions and metrics; reference routes never leave Laptop 1. Stop it with `Ctrl + C` afterwards.
 - It adds roughly 100–500 ms per request. The UI's "round trip" timing shows this.
-- Opening the bare tunnel URL returns a JSON list of endpoints. Use `/docs` for the interactive API page.
-- Don't commit `config.js` with a tunnel URL or IP in it. Change it back to `http://127.0.0.1:8000`.
+- Leave `config.js` at `""` in git. A tunnel URL or LAN IP belongs only in a local edit.
 
 ---
 
@@ -115,7 +108,7 @@ Then open:
 | Symptom | Fix |
 |---|---|
 | UI shows the red "Offline" pill | API not running; wrong URL/IP in `config.js`; for Option A, firewall rule missing or different networks; for Option B, cloudflared stopped or URL changed |
-| `{"detail":"Not Found"}` | You opened a path that doesn't exist. Use `/`, `/docs`, `/api/health` or `/api/trips` |
+| `{"detail":"Not Found"}` | You opened a path that doesn't exist. Use `/ui/` for the map, `/docs`, `/api`, `/api/health` or `/api/trips` |
 | Tunnel URL gives `502 Bad Gateway` | cloudflared is running but uvicorn isn't. Start the API on port 8000 |
 | `Address already in use` / `WinError 10048` | Another server uses the port. Close it, or use `--port 8001` and update `config.js` |
 | `FileNotFoundError models/final/model.joblib` | Pull the committed `models/final/`, or run the training steps in the README |

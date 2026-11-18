@@ -236,26 +236,26 @@ If you keep the data somewhere else, point the project at it before running anyt
 ## 7. Quick start – run the app on one laptop
 
 The trained model is already committed in `models/final/`, so **no training is needed** to run the app.
+The API serves the web UI too, so one process and one port are enough.
 
-**Terminal 1: start the API**
+**Terminal: start the app**
 ```bash
-uvicorn backend.app:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
-Wait for this line:
+Wait for these lines:
 ```
 ... | INFO | model + HMM params loaded; serving partition 'student_test' (10 trips)
+... | INFO | serving UI from .../frontend at /ui/
 ```
 
-**Terminal 2: serve the UI**
-```bash
-python -m http.server 5500 --directory frontend
-```
-
-**Browser:** open **http://127.0.0.1:5500**. The status pill should turn green ("API live"). Click any trip, and the full pipeline runs on the server and draws the route.
+**Browser:** open **http://127.0.0.1:8000/ui/** (the bare `http://127.0.0.1:8000/` redirects there). The status pill should turn green ("API live"). Click any trip, and the full pipeline runs on the server and draws the route.
 
 Useful checks:
 - http://127.0.0.1:8000/api/health returns `{"status": "ok", ...}`.
+- http://127.0.0.1:8000/api lists the endpoints.
 - http://127.0.0.1:8000/docs is FastAPI's interactive API page.
+
+> Prefer a separate static server for the UI? Set `window.PATHSNAP_API = "http://127.0.0.1:8000";` in `frontend/config.js`, run `python -m http.server 5500 --directory frontend`, and open http://127.0.0.1:5500.
 
 > The API serves `evaluator_test` automatically when that folder contains trips. Otherwise it serves `student_test` for rehearsal. To force one, set `PATHSNAP_EVAL_PARTITION` before starting uvicorn: in PowerShell `$env:PATHSNAP_EVAL_PARTITION = "student_test"`, in CMD `set PATHSNAP_EVAL_PARTITION=student_test`.
 
@@ -299,7 +299,7 @@ Both laptops must be on the **same network**. If the venue Wi-Fi blocks device-t
    ```
 5. Open **http://127.0.0.1:5500**. The panel picks any trip, and Laptop 1's console shows the request being processed.
 
-**Different networks, or Wi-Fi that blocks devices from reaching each other?** Use a Cloudflare quick tunnel instead. On Laptop 1, run `cloudflared tunnel --url http://127.0.0.1:8000` next to the API, then put the printed `https://….trycloudflare.com` URL in Laptop 2's `frontend/config.js`. The API and its logs stay on Laptop 1.
+**Different networks, or Wi-Fi that blocks devices from reaching each other?** Use a Cloudflare quick tunnel instead — one public link then serves both the UI and the API. On Laptop 1, start uvicorn on `127.0.0.1:8000` and run `./tools/tunnel.sh` (or `cloudflared tunnel --url http://127.0.0.1:8000`). Open the printed `https://….trycloudflare.com` link on any machine; the UI is at `/ui/` and calls the API on the same origin, so nothing needs editing. The model, data and logs stay on Laptop 1.
 
 More detail, including both options and how to view the Folium maps: [docs/DEPLOY.md](docs/DEPLOY.md).
 
